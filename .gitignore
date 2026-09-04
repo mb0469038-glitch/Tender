@@ -16,6 +16,7 @@ src-tauri/target
 *.sqlite
 !workspace-data/tender-studio.sqlite
 
+
 .vscode/*
 !.vscode/extensions.json
 .idea
