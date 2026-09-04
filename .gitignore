@@ -13,12 +13,9 @@ dist-ssr
 src-tauri/target
 *.local
 
-# Local runtime data stays on each computer. The portable snapshot under
-# workspace-data/ is intentionally versioned for moving this private project.
 *.sqlite
 !workspace-data/tender-studio.sqlite
 
-# Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
