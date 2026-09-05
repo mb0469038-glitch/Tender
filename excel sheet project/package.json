@@ -4,7 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "postinstall": "node scripts/patch-univer-context-menu.mjs",
+    "predev": "node scripts/patch-univer-context-menu.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/patch-univer-context-menu.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },

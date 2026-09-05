@@ -6,7 +6,6 @@ import {
   Plugin,
   UniverInstanceType,
   Workbook,
-  toDisposable,
 } from '@univerjs/core';
 import {
   FormulaDataModel,
@@ -52,8 +51,6 @@ export class PasteOptionsContextMenuPlugin extends Plugin {
   }
 
   override onReady(): void {
-    this.installClickControlledSubmenus();
-
     const paste = async (hook: string) => {
       try {
         const clipboardService = this._injector.get(ISheetClipboardService);
@@ -119,112 +116,6 @@ export class PasteOptionsContextMenuPlugin extends Plugin {
         },
       },
     });
-  }
-
-  /** Keeps Univer's right-side context submenus open until an outside click. */
-  private installClickControlledSubmenus(): void {
-    let activeTrigger: HTMLButtonElement | null = null;
-    let activeTriggerKey: string | null = null;
-    let activeSubmenu: HTMLElement | null = null;
-    let lastClosed: { key: string; submenu: HTMLElement } | null = null;
-
-    const getRootTrigger = (target: EventTarget | null): HTMLButtonElement | null => {
-      if (!(target instanceof Element)) return null;
-      const button = target.closest<HTMLButtonElement>('button');
-      if (
-        !button ||
-        button.closest('[data-u-context-menu-submenu]') ||
-        !button.closest('section.univer-popup') ||
-        !button.querySelector('.univerjs-icon-more-icon')
-      ) {
-        return null;
-      }
-      return button;
-    };
-
-    const hideSubmenu = (submenu: HTMLElement) => {
-      submenu.style.visibility = 'hidden';
-      submenu.style.pointerEvents = 'none';
-    };
-
-    const closeActiveSubmenu = (relatedTarget: EventTarget | null) => {
-      const trigger = activeTrigger;
-      const key = activeTriggerKey;
-      const submenu = activeSubmenu;
-      activeTrigger = null;
-      activeTriggerKey = null;
-      activeSubmenu = null;
-
-      if (submenu && key) {
-        hideSubmenu(submenu);
-        lastClosed = { key, submenu };
-      }
-
-      // Let Univer update its own React state to closed as well.
-      trigger?.dispatchEvent(new MouseEvent('mouseout', {
-        bubbles: true,
-        relatedTarget: relatedTarget instanceof EventTarget ? relatedTarget : null,
-      }));
-    };
-
-    const onMouseOver = (event: MouseEvent) => {
-      // Disable Univer's hover-to-open behavior for root submenu rows.
-      if (getRootTrigger(event.target)) event.stopPropagation();
-    };
-
-    const onMouseOut = (event: MouseEvent) => {
-      if (!activeTrigger) return;
-      if (
-        activeTrigger.contains(event.target as Node) ||
-        activeSubmenu?.contains(event.target as Node)
-      ) {
-        // A clicked submenu stays open when the pointer leaves it.
-        event.stopPropagation();
-      }
-    };
-
-    const onClick = (event: MouseEvent) => {
-      const trigger = getRootTrigger(event.target);
-
-      if (trigger) {
-        const key = trigger.textContent?.trim() ?? '';
-        if (activeTrigger && activeTrigger !== trigger) closeActiveSubmenu(trigger);
-
-        activeTrigger = trigger;
-        activeTriggerKey = key;
-
-        requestAnimationFrame(() => {
-          const visibleSubmenus = Array.from(
-            document.querySelectorAll<HTMLElement>('[data-u-context-menu-submenu]'),
-          ).filter((submenu) => getComputedStyle(submenu).visibility !== 'hidden');
-
-          activeSubmenu = visibleSubmenus.at(-1) ?? null;
-          if (!activeSubmenu && lastClosed?.key === key && lastClosed.submenu.isConnected) {
-            activeSubmenu = lastClosed.submenu;
-            activeSubmenu.style.visibility = 'visible';
-            activeSubmenu.style.pointerEvents = 'auto';
-          }
-        });
-        return;
-      }
-
-      if (
-        activeSubmenu &&
-        event.target instanceof Node &&
-        !activeSubmenu.contains(event.target)
-      ) {
-        closeActiveSubmenu(event.target);
-      }
-    };
-
-    document.addEventListener('mouseover', onMouseOver, true);
-    document.addEventListener('mouseout', onMouseOut, true);
-    document.addEventListener('click', onClick, true);
-    this.disposeWithMe(toDisposable(() => {
-      document.removeEventListener('mouseover', onMouseOver, true);
-      document.removeEventListener('mouseout', onMouseOut, true);
-      document.removeEventListener('click', onClick, true);
-    }));
   }
 
   private async pasteFormulasOnly(copyId: string): Promise<boolean> {
