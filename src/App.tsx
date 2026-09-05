@@ -10,11 +10,50 @@ import {
   useRef,
   useState,
 } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { RangeDirective, RangesDirective, SheetDirective, SheetsDirective, SpreadsheetComponent } from "@syncfusion/ej2-react-spreadsheet";
 import { calculateFormula, conditionMatches, money, number, unitPriceWithShipping } from "./domain/calculations";
 import type { CalculationResult } from "./domain/calculations";
-import { MAX_OPENING_DIMENSION, allJoinedWindowGroup, joinedGroupBounds, realJoinSegments, realJoinedWindowGroup, windowCornerPoint, windowCorners } from "./domain/windowJoins";
+import { MAX_OPENING_DIMENSION, allJoinedWindowGroup, realJoinSegments, realJoinedWindowGroup, windowCornerPoint, windowCorners } from "./domain/windowJoins";
+import { PermissionGate, hasPermission } from "./shared/permissions/PermissionGate";
+import { useSession } from "./modules/auth/ui/SessionContext";
+import { ProfileMenu } from "./modules/auth/ui/ProfileMenu";
+import { WORKSPACE_PERMISSIONS } from "./modules/workspace-legacy/domain/permissions";
+import {
+  JOIN_MATCH_PROPERTIES,
+  fullSideTouching,
+  joinMatchPropertiesForAssembly,
+  joinMatchPropertyKeys,
+  normalizeCombinationReferences,
+  realJoinCheck as realJoinCheckPure,
+  reconcileRealJoins as reconcileRealJoinsPure,
+  recheckCombinationJoins as recheckCombinationJoinsPure,
+  synchronizeCombinationDetails as synchronizeCombinationDetailsPure,
+} from "./modules/projects/domain/joinEngine";
+import {
+  calculatePartQuantity as calculatePartQuantityPure,
+  formulaValuesForItem as formulaValuesForItemPure,
+  frameTypeForItem as frameTypeForItemPure,
+  usesDirectJoinValues,
+} from "./modules/costing/domain/quantityEngine";
+import { workspaceGateway } from "./modules/workspace/infrastructure/workspaceGateway";
+import { persistWorkspaceSnapshot } from "./modules/workspace/application/persistWorkspace";
+import { serializeWorkspaceSnapshot } from "./modules/workspace/domain/snapshot";
+import type { WorkspaceSnapshotV1 } from "./modules/workspace/domain/snapshot";
+import { useCostingState } from "./modules/costing/application/useCostingState";
+import { sellingPriceFromDirectCost } from "./modules/costing/domain/pricing";
+import { CostingFinancials } from "./modules/costing/ui/CostingFinancials";
+import { defaultManpowerCosts, defaultMarkupRates, defaultShippingCosts, defaultShippingTypes } from "./modules/costing/domain/defaults";
+import { useMaterialDatabasesState } from "./modules/catalog/application/useMaterialDatabasesState";
+import { defaultComponentDatabases } from "./modules/catalog/domain/defaults";
+import { useCatalogItemsState } from "./modules/catalog/application/useCatalogItemsState";
+import { useProjectsState } from "./modules/projects/application/useProjectsState";
+import {
+  defaultAssemblyCode as defaultAssemblyCodePure,
+  materialDatabaseReference as materialDatabaseReferencePure,
+  materialFromAssemblyCode as materialFromAssemblyCodePure,
+  solealAccessoryMaterials as solealAccessoryMaterialsPure,
+  solealProfileMaterials as solealProfileMaterialsPure,
+} from "./modules/catalog/domain/materialReference";
 import type {
   Assembly,
   AssemblyCanvasDefaults,
@@ -22,6 +61,8 @@ import type {
   BreakdownRule,
   CanvasItem,
   ComponentDatabase,
+  CompanyDatabase,
+  CompanyPriceTable,
   FrameType,
   AssemblyNameRule,
   JoinPropertyMatch,
@@ -48,8 +89,6 @@ type StockCatalogueItem = {
   massPerLm: number;
   sketch: string;
 };
-type CompanyDatabase = { id: string; name: string };
-type CompanyPriceTable = { id: string; companyDatabaseId: string; name: string; referencePrefix: string };
 type TableMove = { tableId?: string; sourceTableId?: string; sourceDatabaseId: string; name: string; referencePrefix: string; materialIds: string[] };
 // Kept independent from Tender Helping System data until the stock/costing connection is designed.
 const stockCatalogue: StockCatalogueItem[] = [
@@ -124,15 +163,7 @@ const standardAssemblyCategory = (assemblyPage?: string) => assemblyPage === FLY
   : [TWO_RAIL_WINDOW_PAGE, HINGE_WINDOW_PAGE, FIXED_WINDOW_PAGE, TILT_AND_TURN_PAGE].includes(assemblyPage ?? "")
     ? GLAZED_ALUMINIUM_CATEGORY
     : undefined;
-const DIRECT_JOIN_VALUE_ASSEMBLY_IDS = new Set(["hinged-window-soleal-fyn", "fixed-window", "tilt-and-turn-soleal-fyn"]);
-const usesDirectJoinValues = (assembly?: Assembly) => {
-  if (!assembly) return false;
-  if (DIRECT_JOIN_VALUE_ASSEMBLY_IDS.has(assembly.id)) return true;
-  const name = assembly.name.toLowerCase();
-  const namedFynWindowType = /^(hinged window|fixed window|tilt and turn)\s*-\s*soleal\s*-\s*fyn$/.test(name);
-  return namedFynWindowType || ([TECHNAL_FYN_DATABASE, TECHNAL_FY_DATABASE].includes(assembly.databaseId ?? "")
-    && [HINGE_WINDOW_PAGE, FIXED_WINDOW_PAGE, TILT_AND_TURN_PAGE].includes(assembly.assemblyPage ?? ""));
-};
+// usesDirectJoinValues relocated to modules/costing/domain/quantityEngine.ts (Phase 2 extraction).
 const GENERAL_ITEM_CODES = new Set(["TCH-MISC", "TCH-SIL"]);
 const TWO_SLIDER_DOOR_SKETCH = "M8 8H92V92H8ZM50 8V92M8 50H92M14 15H45V85H14ZM55 15H86V85H55M17 48l-7 4 7 4M83 48l7 4-7 4M22 82H41M59 18H78";
 const assemblyDefaultColor = (id?: string) => id === "soleal-gyn-2rail" ? "#25a9ad" : id === "soleal-gy-2rail" ? "#527fc3" : "#d9e8ea";
@@ -175,46 +206,9 @@ const defaultAssemblyCanvasDefaults: AssemblyCanvasDefaults = {
   reinforced: false,
   hasCoating: false,
 };
-const JOIN_MATCH_PROPERTIES = [
-  { value: "leaves", label: "Number of leaves" },
-  { value: "openingType", label: "Opening type" },
-  { value: "leafSize", label: "Leaf size" },
-  { value: "frameSize", label: "Frame size" },
-  { value: "hasArchitrave", label: "Architrave" },
-  { value: "hasArchitraveAllowance", label: "Architrave allowance" },
-  { value: "reinforced", label: "Reinforcement" },
-  { value: "hasCoating", label: "Coating" },
-] as const;
-const joinMatchPropertyKeys = new Set<string>(JOIN_MATCH_PROPERTIES.map((property) => property.value));
-const joinMatchPropertiesForAssembly = (assemblyPage?: string, assemblyId?: string) => {
-  const page = assemblyPage ?? (assemblyId === "fly-screen-2rail" ? FLY_SCREEN_PAGE : undefined);
-  const propertyNames = page === FLY_SCREEN_PAGE
-    ? ["hasCoating"]
-    : page === TWO_RAIL_WINDOW_PAGE
-      ? ["leaves", "openingType", "hasArchitrave", "reinforced", "hasArchitraveAllowance", "hasCoating"]
-      : page === HINGE_WINDOW_PAGE
-        ? ["leaves", "openingType", "leafSize", "frameSize", "hasArchitrave", "reinforced", "hasArchitraveAllowance", "hasCoating"]
-        : page === FIXED_WINDOW_PAGE || page === TILT_AND_TURN_PAGE
-          ? ["leafSize", "frameSize", "hasArchitrave", "reinforced", "hasArchitraveAllowance", "hasCoating"]
-          : JOIN_MATCH_PROPERTIES.map((property) => property.value);
-  return JOIN_MATCH_PROPERTIES.filter((property) => propertyNames.includes(property.value));
-};
-const canvasFormulaValues = (item: CanvasItem, materials: Material[] = []) => {
-  const glass = materials.find((material) => material.id === item.glassMaterialId);
-  return {
-    ...item.parameters,
-    NumberOfLeaves: item.leaves ?? 2,
-    OpeningType: item.openingType === "door" ? 1 : 0,
-    LeafSize: item.leafSize === "big" ? 1 : 0,
-    FrameSize: item.frameSize === "big" ? 1 : 0,
-    ArchitraveAllowance: item.hasArchitraveAllowance ? 1 : 0,
-    Architrave: item.hasArchitrave ? 1 : 0,
-    Reinforcement: item.reinforced ? 1 : 0,
-    FlyScreen: item.hasFlyScreen ? 1 : 0,
-    GlassThickness: Number.parseFloat(inferGlassThickness(glass)) || 0,
-    Coating: item.hasCoating ? 1 : 0,
-  };
-};
+// JOIN_MATCH_PROPERTIES, joinMatchPropertyKeys, joinMatchPropertiesForAssembly, and
+// canvasFormulaValues relocated to modules/projects/domain/joinEngine.ts and
+// modules/costing/domain/quantityEngine.ts respectively (Phase 2 extraction).
 const inferGlassThickness = (material?: Material) => {
   const layers = [...(material?.options?.join(" ").matchAll(/\b(\d+(?:\.\d+)?)\s*mm\b/gi) ?? [])].map((match) => match[1]);
   const storedLayers = [...(material?.thickness?.matchAll(/\d+(?:\.\d+)?/g) ?? [])].map((match) => match[0]);
@@ -230,48 +224,9 @@ type PriceHistorySnapshot = {
   projects: Project[];
   weightRates: Record<string, number>;
 };
-const defaultMarkupRates: MarkupRate[] = [
-  ["design-costs", "Design Costs", 3, 1, 1],
-  ["project-management", "Project Management", 4, 3, 1],
-  ["site-overheads", "Project Overheads (Site Overheads)", 0, 0, 0],
-  ["site-logistics", "Project Overheads (Site Logistics)", 1, 1, 0],
-  ["other-overheads", "Other Overheads", 0, 0, 0],
-  ["consultancy-fees", "Consultancy Fees", 0, 0, 0],
-  ["finance-charges", "Finance Charges", 1, 0, 0],
-  ["management-supporting", "Management & Supporting", 6, 2, 2],
-  ["utilities", "Utilities", 3, 3, 0],
-  ["smd", "SMD (Sales, Marketing & Development)", 0, 0, 0],
-  ["depreciation", "Depreciation", 1, 0, 0],
-  ["holding-fees", "Alumco Holding Fees", 0, 0, 0],
-  ["general-financial-charges", "General Financial Charges", 0, 0, 0],
-  ["tax-zakat", "Tax & Zakat", 0, 0, 0],
-  ["contingencies", "Contingencies", 1, 1, 0],
-  ["profit", "Profit", 11, 8, 6],
-  ["discount", "Discount", 0, 0, 0],
-].map(([id, name, typeA, typeB, typeC]) => ({ id: String(id), name: String(name), typeA: Number(typeA), typeB: Number(typeB), typeC: Number(typeC) }));
-const defaultManpowerCosts: ManpowerCost[] = [
-  ["fabrication", "Fabrication", 3.33],
-  ["installation", "Installation", 4.5],
-  ["logistics", "Logistics", 2.85],
-  ["store", "Store", 4],
-  ["others", "Others", 4],
-].map(([id, name, rate]) => ({ id: String(id), name: String(name), rate: Number(rate) }));
+// defaultMarkupRates/defaultManpowerCosts/defaultShippingTypes/defaultShippingCosts
+// relocated to modules/costing/domain/defaults.ts (Phase 4 extraction).
 const defaultManpowerHours: Record<string, number> = { fabrication: 4, installation: 5, logistics: 1, store: 1, others: 1 };
-const defaultShippingTypes: ShippingType[] = [{ id: "type-1", name: "Type 1" }];
-const defaultShippingCosts: ShippingCost[] = [
-  ["load-truck-charges", "Load - Truck Charges", 1],
-  ["export-duty-payment", "Export - Duty Payment", 2],
-  ["export-transport-port", "Export - Transport to Port", 3],
-  ["export-unloading", "Export - Unloading", 4],
-  ["export-landing-charges", "Export - Landing Charges", 5],
-  ["import-transport-port", "Import - Transport to Port", 6],
-  ["import-landing-charges", "Import - Landing Charges", 7],
-  ["import-unloading", "Import - Unloading", 8],
-  ["import-transport-destination", "Import - Trans. to Destination", 9],
-  ["insurance", "Insurance", 10],
-  ["customs-clearance", "Customs Clearance", 11],
-  ["duties-taxes", "Duties and Taxes", 12],
-].map(([id, name, percentage]) => ({ id: String(id), name: String(name), values: { "type-1": Number(percentage) } }));
 const databaseDefinitions: Record<string, { title: string; eyebrow: string; description: string }> = {
   markups: { title: "Markups", eyebrow: "Database / Markups", description: "General items and shared components used for tender markups." },
   manpower: { title: "Man power", eyebrow: "Database / Man power", description: "Labour and manpower items used in tender estimating." },
@@ -292,10 +247,7 @@ databaseDefinitions[TECHNAL_FYN_DATABASE] = { title: "Soleal · FYn", eyebrow: "
 databaseDefinitions[TECHNAL_GY_DATABASE] = { title: "Soleal · GY", eyebrow: "Database / Soleal Doors and Windows / GY", description: "Soleal GY aluminium profiles and accessories." };
 databaseDefinitions[TECHNAL_FY_DATABASE] = { title: "Soleal · FY", eyebrow: "Database / Soleal Doors and Windows / FY", description: "Soleal FY aluminium profiles and accessories." };
 databaseDefinitions[SOLEAL_JOINTS_DATABASE] = { title: "Soleal · Joints", eyebrow: "Database / Soleal Doors and Windows / Joints", description: "Joints for Soleal doors and windows." };
-const defaultComponentDatabases: ComponentDatabase[] = [
-  { id: TECHNAL_GYN_DATABASE, name: "GYn", parent: "technal" },
-  { id: TECHNAL_FYN_DATABASE, name: "FY", parent: "technal" },
-];
+// defaultComponentDatabases relocated to modules/catalog/domain/defaults.ts (Phase 5 extraction).
 const technalRows = [
   ["TCH-MISC", "Misc items - pan head screw- backing rod", "perimeter", 3],
   ["TCH-SIL", "Weather Silicone", "CEILING(perimeter/2,1)", 4.24],
@@ -755,30 +707,29 @@ function TechnicalSymbol({ item, selected, dimensionTextSize, glassName, drawing
 }
 
 function App() {
+  const { permissions } = useSession();
   const [screen, setScreen] = useState<Screen>("home");
   const initialSeed = withTechnalSeed(materialData, assemblyData);
-  const [materials, setMaterials] = useState(initialSeed.materials);
-  const [assemblies, setAssemblies] = useState(initialSeed.assemblies);
-  const [projects, setProjects] = useState(projectData);
-  const [markupRates, setMarkupRates] = useState<MarkupRate[]>(defaultMarkupRates);
-  const [manpowerCurrency, setManpowerCurrency] = useState("US Dollar");
-  const [manpowerCosts, setManpowerCosts] = useState<ManpowerCost[]>(defaultManpowerCosts);
-  const [shippingTypes, setShippingTypes] = useState<ShippingType[]>(defaultShippingTypes);
-  const [shippingCosts, setShippingCosts] = useState<ShippingCost[]>(defaultShippingCosts);
-  const shippingRateForType = (typeId?: string) => typeId
-    ? shippingCosts.reduce((total, cost) => total + Math.max(0, cost.values[typeId] ?? 0), 0)
-    : 0;
-  const shippingRateForMaterial = (material: Material) => material.shippingTypeId
-    ? shippingRateForType(material.shippingTypeId)
-    : Math.max(0, material.shippingPercentage ?? 0);
+  const { materials, setMaterials, assemblies, setAssemblies } = useCatalogItemsState(initialSeed.materials, initialSeed.assemblies);
+  const {
+    projects, setProjects,
+    selectedProjectId, setSelectedProjectId,
+    selectedCanvasId, setSelectedCanvasId,
+    selectedItemId, setSelectedItemId,
+    copiedCanvasItem, setCopiedCanvasItem,
+    undoProjectHistory, setUndoProjectHistory,
+    redoProjectHistory, setRedoProjectHistory,
+  } = useProjectsState(projectData);
+  const {
+    markupRates, setMarkupRates,
+    manpowerCurrency, setManpowerCurrency,
+    manpowerCosts, setManpowerCosts,
+    shippingTypes, setShippingTypes,
+    shippingCosts, setShippingCosts,
+    shippingRateForType, shippingRateForMaterial,
+  } = useCostingState();
   const [modal, setModal] = useState<Modal>(null);
   const [materialDatabaseOverride, setMaterialDatabaseOverride] = useState<string | null>(null);
-  const [selectedProjectId, setSelectedProjectId] = useState("project-1");
-  const [selectedCanvasId, setSelectedCanvasId] = useState("opening-1");
-  const [selectedItemId, setSelectedItemId] = useState<string | null>("item-1");
-  const [copiedCanvasItem, setCopiedCanvasItem] = useState<CanvasItem | null>(null);
-  const [undoProjectHistory, setUndoProjectHistory] = useState<Project[]>([]);
-  const [redoProjectHistory, setRedoProjectHistory] = useState<Project[]>([]);
   const [search, setSearch] = useState("");
   const [stockSearch, setStockSearch] = useState("");
   const [stockSection, setStockSection] = useState<"accessories" | "profiles">("accessories");
@@ -799,14 +750,16 @@ function App() {
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [activeProjectYear, setActiveProjectYear] = useState("2026");
   const [activeDatabaseId, setActiveDatabaseId] = useState("prices");
-  const [componentDatabases, setComponentDatabases] = useState<ComponentDatabase[]>(defaultComponentDatabases);
-  const [weightRates, setWeightRates] = useState<Record<string, number>>({});
+  const {
+    componentDatabases, setComponentDatabases,
+    weightRates, setWeightRates,
+    companyDatabases, setCompanyDatabases,
+    companyPriceTables, setCompanyPriceTables,
+    movedOriginalPriceTableIds, setMovedOriginalPriceTableIds,
+  } = useMaterialDatabasesState();
   const [rateMethodMenu, setRateMethodMenu] = useState<{ materialId: string; tableId: string } | null>(null);
   const [newDatabaseParent, setNewDatabaseParent] = useState<"technal" | "sidem" | null>(null);
   const [newDatabaseName, setNewDatabaseName] = useState("");
-  const [companyDatabases, setCompanyDatabases] = useState<CompanyDatabase[]>([]);
-  const [companyPriceTables, setCompanyPriceTables] = useState<CompanyPriceTable[]>([]);
-  const [movedOriginalPriceTableIds, setMovedOriginalPriceTableIds] = useState<string[]>([]);
   const [newCompanyDatabaseOpen, setNewCompanyDatabaseOpen] = useState(false);
   const [newCompanyDatabaseName, setNewCompanyDatabaseName] = useState("");
   const [newCompanyDatabaseError, setNewCompanyDatabaseError] = useState("");
@@ -1115,228 +1068,19 @@ function App() {
   const contextIsFixedWindow = contextItem?.assemblyPage === FIXED_WINDOW_PAGE || contextItem?.sourceId === "fixed-window";
   const contextIsTiltAndTurn = contextItem?.assemblyPage === TILT_AND_TURN_PAGE || contextItem?.sourceId === "tilt-and-turn-soleal-fyn";
   const contextSupportsFynLeafSize = contextItem?.sourceId === "hinged-window-soleal-fyn" || contextItem?.sourceId === "fixed-window" || contextItem?.sourceId === "tilt-and-turn-soleal-fyn";
-  const isFynOpening = (item: CanvasItem) => assemblies.find((assembly) => assembly.id === item.sourceId)?.databaseId === TECHNAL_FYN_DATABASE;
-  const frameTypeForItem = (item: CanvasItem) => {
-    const assembly = assemblies.find((value) => value.id === item.sourceId);
-    const frameType = assembly?.frameTypes?.find((row) => row.type.trim() && conditionMatches(
-      row.condition,
-      item.inputWidth ?? 1500,
-      item.inputHeight ?? 1200,
-      formulaValuesForItem(item),
-    ));
-    return frameType?.type.trim() || null;
-  };
-  const realJoinCheck = (source: CanvasItem, target: CanvasItem, sourceCorner: WindowCorner, targetCorner: WindowCorner, canvasItems = project?.items ?? []) => {
-    const sourceGroup = realJoinedWindowGroup(canvasItems, source.id);
-    const targetGroup = realJoinedWindowGroup(canvasItems, target.id);
-    if ([...sourceGroup].some((id) => targetGroup.has(id))) return { valid: false, message: "These openings are already in the same real-join group." };
-    const groupItems = canvasItems;
-    if (![...sourceGroup, ...targetGroup].every((id) => isFynOpening(groupItems.find((item) => item.id === id)!))) return { valid: false, message: "Real joins are allowed only between FYn openings." };
-    const groupFrameTypes = (ids: Set<string>) => new Set([...ids].map((id) => {
-      const item = groupItems.find((value) => value.id === id);
-      return item ? frameTypeForItem(item) : null;
-    }));
-    const sourceFrameTypes = groupFrameTypes(sourceGroup);
-    const targetFrameTypes = groupFrameTypes(targetGroup);
-    if (sourceFrameTypes.has(null) || targetFrameTypes.has(null)) return { valid: false, message: "Define a matching Frame type for every opening before making a Real join." };
-    if (sourceFrameTypes.size !== 1 || targetFrameTypes.size !== 1 || [...sourceFrameTypes][0] !== [...targetFrameTypes][0]) return { valid: false, message: "Real joins need the same Frame type." };
-    const sourceHorizontal = sourceCorner.endsWith("left") ? "left" : "right";
-    const targetHorizontal = targetCorner.endsWith("left") ? "left" : "right";
-    const sourceVertical = sourceCorner.startsWith("top") ? "top" : "bottom";
-    const targetVertical = targetCorner.startsWith("top") ? "top" : "bottom";
-    const horizontalJoin = sourceHorizontal !== targetHorizontal;
-    const verticalJoin = sourceVertical !== targetVertical;
-    if (horizontalJoin === verticalJoin) return { valid: false, message: "A real join must connect matching full sides, not diagonal corners." };
-    const groupRect = (ids: Set<string>) => {
-      const members = [...ids].map((id) => groupItems.find((item) => item.id === id)!).filter(Boolean);
-      const left = Math.min(...members.map((item) => item.x));
-      const top = Math.min(...members.map((item) => item.y));
-      const right = Math.max(...members.map((item) => item.x + (item.inputWidth ?? 1500)));
-      const bottom = Math.max(...members.map((item) => item.y + (item.inputHeight ?? 1200)));
-      return { left, top, right, bottom };
-    };
-    const sourceRect = groupRect(sourceGroup);
-    const targetRect = groupRect(targetGroup);
-    const fullSideAligned = horizontalJoin
-      ? Math.abs((sourceHorizontal === "right" ? sourceRect.right : sourceRect.left) - (targetHorizontal === "right" ? targetRect.right : targetRect.left)) <= 1
-        && Math.abs(sourceRect.top - targetRect.top) <= 1 && Math.abs(sourceRect.bottom - targetRect.bottom) <= 1
-      : Math.abs((sourceVertical === "bottom" ? sourceRect.bottom : sourceRect.top) - (targetVertical === "bottom" ? targetRect.bottom : targetRect.top)) <= 1
-        && Math.abs(sourceRect.left - targetRect.left) <= 1 && Math.abs(sourceRect.right - targetRect.right) <= 1;
-    if (!fullSideAligned) return { valid: false, message: "Align the complete side of both openings before creating a Real join." };
-    const sourceBounds = joinedGroupBounds(groupItems, sourceGroup);
-    const targetBounds = joinedGroupBounds(groupItems, targetGroup);
-    const requiredMatch: [number, number, "height" | "width"] = horizontalJoin
-      ? [sourceBounds.height, targetBounds.height, "height"]
-      : [sourceBounds.width, targetBounds.width, "width"];
-    if (Math.abs(requiredMatch[0] - requiredMatch[1]) > 1) return { valid: false, message: `Real ${horizontalJoin ? "left/right" : "top/bottom"} joins need the same ${requiredMatch[2]} (±1 mm).` };
-    return { valid: true, message: `Valid real join: matching ${[...sourceFrameTypes][0]} frame type, ${requiredMatch[2]}, and FYn series.` };
-  };
-  const fullSideTouching = (first: CanvasItem, second: CanvasItem) => {
-    const firstRight = first.x + (first.inputWidth ?? 1500);
-    const firstBottom = first.y + (first.inputHeight ?? 1200);
-    const secondRight = second.x + (second.inputWidth ?? 1500);
-    const secondBottom = second.y + (second.inputHeight ?? 1200);
-    const vertical = (Math.abs(firstRight - second.x) <= 1 || Math.abs(secondRight - first.x) <= 1)
-      && Math.min(firstBottom, secondBottom) - Math.max(first.y, second.y) > 1;
-    const horizontal = (Math.abs(firstBottom - second.y) <= 1 || Math.abs(secondBottom - first.y) <= 1)
-      && Math.min(firstRight, secondRight) - Math.max(first.x, second.x) > 1;
-    return vertical || horizontal;
-  };
-  const combinationTouching = (first: CanvasItem, second: CanvasItem) => fullSideTouching(first, second)
-    || windowCorners.some((firstCorner) => windowCorners.some((secondCorner) => {
-      const firstPoint = windowCornerPoint(first, firstCorner);
-      const secondPoint = windowCornerPoint(second, secondCorner);
-      return Math.hypot(firstPoint.x - secondPoint.x, firstPoint.y - secondPoint.y) <= 1;
-    }));
-  const reconcileRealJoins = (items: CanvasItem[]) => {
-    const touchingOnly = items.map((item) => ({
-      ...item,
-      realJoinedWindowIds: (item.realJoinedWindowIds ?? []).filter((joinedId) => {
-        const joined = items.find((value) => value.id === joinedId);
-        if (!joined || !fullSideTouching(item, joined) || !isFynOpening(item) || !isFynOpening(joined)) return false;
-        const itemFrameType = frameTypeForItem(item);
-        const joinedFrameType = frameTypeForItem(joined);
-        return Boolean(itemFrameType && itemFrameType === joinedFrameType);
-      }),
-    }));
-    return touchingOnly.map((item) => {
-      const group = realJoinedWindowGroup(touchingOnly, item.id);
-      const touchingGroupMembers = [...group].filter((id) => {
-        if (id === item.id) return false;
-        const joined = touchingOnly.find((value) => value.id === id);
-        return Boolean(joined && fullSideTouching(item, joined));
-      });
-      return { ...item, realJoinedWindowIds: [...new Set(touchingGroupMembers)] };
-    });
-  };
-  const recheckCombinationJoins = (items: CanvasItem[]) => {
-    // Existing valid Real joins are authoritative.  Do not erase and rebuild them
-    // from the unordered combination pairs: that allowed a later join to replace
-    // the first Real join when several combinations touched at the same time.
-    const preservedRealJoins = reconcileRealJoins(items);
-    const existingIds = new Set(items.map((item) => item.id));
-    const joinedPairs = new Set<string>();
-    items.forEach((item) => [...(item.joinedWindowIds ?? []), ...(item.realJoinedWindowIds ?? [])].forEach((joinedId) => {
-      if (!existingIds.has(joinedId) || joinedId === item.id) return;
-      const joined = items.find((value) => value.id === joinedId);
-      if (joined && combinationTouching(item, joined)) joinedPairs.add([item.id, joinedId].sort().join("|"));
-    }));
-    const normalized: CanvasItem[] = items.map((item) => ({
-      ...item,
-      joinedWindowIds: [...joinedPairs].flatMap((pair) => pair.split("|").includes(item.id) ? pair.split("|").filter((id) => id !== item.id) : []),
-      realJoinedWindowIds: preservedRealJoins.find((value) => value.id === item.id)?.realJoinedWindowIds ?? [],
-    }));
-    let classified = normalized;
-    let addedRealJoin = true;
-    while (addedRealJoin) {
-      addedRealJoin = false;
-      for (const pair of joinedPairs) {
-        const [firstId, secondId] = pair.split("|");
-        const first = classified.find((item) => item.id === firstId);
-        const second = classified.find((item) => item.id === secondId);
-        if (!first || !second || realJoinedWindowGroup(classified, first.id).has(second.id)) continue;
-        const matchingCorners = windowCorners.flatMap((firstCorner) => windowCorners.map((secondCorner) => ({
-          firstCorner,
-          secondCorner,
-          firstPoint: windowCornerPoint(first, firstCorner),
-          secondPoint: windowCornerPoint(second, secondCorner),
-        }))).filter(({ firstPoint, secondPoint }) => Math.hypot(firstPoint.x - secondPoint.x, firstPoint.y - secondPoint.y) <= 1);
-        const canBeReal = matchingCorners.some(({ firstCorner, secondCorner }) => realJoinCheck(first, second, firstCorner, secondCorner, classified).valid);
-        if (!canBeReal) continue;
-        classified = classified.map((item) => item.id === first.id
-          ? { ...item, realJoinedWindowIds: [...new Set([...(item.realJoinedWindowIds ?? []), second.id])] }
-          : item.id === second.id
-            ? { ...item, realJoinedWindowIds: [...new Set([...(item.realJoinedWindowIds ?? []), first.id])] }
-            : item);
-        addedRealJoin = true;
-      }
-    }
-    return reconcileRealJoins(classified);
-  };
-  const synchronizeCombinationDetails = (items: CanvasItem[]) => {
-    const groupByItemId = new Map<string, { reference?: number; combinationName?: string; quantity: number }>();
-    const matchedPropertiesByItemId = new Map<string, Partial<CanvasItem>>();
-    const visited = new Set<string>();
-    items.forEach((item) => {
-      if (visited.has(item.id)) return;
-      const group = allJoinedWindowGroup(items, item.id);
-      group.forEach((id) => visited.add(id));
-      if (group.size < 2) return;
-      const members = items.filter((candidate) => group.has(candidate.id));
-      const references = members.map((member) => member.reference).filter((reference): reference is number => typeof reference === "number" && reference > 0);
-      const reference = references.length ? Math.min(...references) : undefined;
-      const combinationName = members.map((member) => member.combinationName?.trim()).find(Boolean);
-      // A combination is supplied as one unit, so every joined opening shares Qty.
-      const quantity = Math.max(1, Math.round(members[0]?.quantity ?? 1));
-      members.forEach((member) => groupByItemId.set(member.id, {
-        reference,
-        combinationName,
-        quantity,
-      }));
-    });
-    (["real", "fake"] as const).forEach((kind) => {
-      const linksFor = (item: CanvasItem) => kind === "real" ? item.realJoinedWindowIds ?? [] : item.joinedWindowIds ?? [];
-      const rulesFor = (item: CanvasItem) => {
-        const assembly = assemblies.find((value) => value.id === item.sourceId);
-        return kind === "real" ? assembly?.realJoinPropertyMatches ?? [] : assembly?.fakeJoinPropertyMatches ?? [];
-      };
-      joinMatchPropertyKeys.forEach((property) => {
-        const seen = new Set<string>();
-        items.forEach((start) => {
-          if (seen.has(start.id)) return;
-          const component = new Set<string>();
-          const pending = [start.id];
-          while (pending.length) {
-            const currentId = pending.pop()!;
-            if (component.has(currentId)) continue;
-            component.add(currentId);
-            seen.add(currentId);
-            const current = items.find((item) => item.id === currentId);
-            if (!current) continue;
-            linksFor(current).forEach((neighbourId) => {
-              const neighbour = items.find((item) => item.id === neighbourId);
-              if (!neighbour) return;
-              const currentMatches = rulesFor(current).some((rule) => rule.property === property && rule.withAssemblyIds.includes(neighbour.sourceId));
-              const neighbourMatches = rulesFor(neighbour).some((rule) => rule.property === property && rule.withAssemblyIds.includes(current.sourceId));
-              if (currentMatches || neighbourMatches) pending.push(neighbourId);
-            });
-          }
-          if (component.size < 2) return;
-          // A match must converge on one value.  The lowest drawing reference is
-          // the stable authority when the join is first made; later edits are
-          // propagated directly by updateRealJoinSettings/updateCombinationGlazedSettings.
-          const members = items
-            .map((item, index) => ({ item, index }))
-            .filter(({ item }) => component.has(item.id))
-            .sort((first, second) => (first.item.reference ?? Number.MAX_SAFE_INTEGER) - (second.item.reference ?? Number.MAX_SAFE_INTEGER) || first.index - second.index);
-          const value = members[0]?.item[property as keyof CanvasItem];
-          members.forEach(({ item }) => {
-            matchedPropertiesByItemId.set(item.id, { ...matchedPropertiesByItemId.get(item.id), [property]: value });
-          });
-        });
-      });
-    });
-    return items.map((item) => {
-      const details = groupByItemId.get(item.id);
-      const matchedProperties = matchedPropertiesByItemId.get(item.id);
-      return details || matchedProperties ? { ...item, ...details, ...matchedProperties } : item;
-    });
-  };
-  const normalizeCombinationReferences = (items: CanvasItem[]) => {
-    const visited = new Set<string>();
-    const groups: { ids: Set<string>; firstIndex: number; reference: number }[] = [];
-    items.forEach((item, firstIndex) => {
-      if (visited.has(item.id)) return;
-      const ids = allJoinedWindowGroup(items, item.id);
-      ids.forEach((id) => visited.add(id));
-      const references = items.filter((candidate) => ids.has(candidate.id)).map((candidate) => candidate.reference).filter((reference): reference is number => typeof reference === "number" && Number.isSafeInteger(reference) && reference > 0);
-      groups.push({ ids, firstIndex, reference: references.length ? Math.min(...references) : Number.MAX_SAFE_INTEGER });
-    });
-    groups.sort((first, second) => first.reference - second.reference || first.firstIndex - second.firstIndex);
-    const referenceByItemId = new Map<string, number>();
-    groups.forEach((group, index) => group.ids.forEach((id) => referenceByItemId.set(id, index + 1)));
-    return items.map((item) => ({ ...item, reference: referenceByItemId.get(item.id) ?? item.reference }));
-  };
+  // Window-join graph + frame-type + formula/quantity engines relocated to
+  // modules/projects/domain/joinEngine.ts and modules/costing/domain/quantityEngine.ts
+  // (Phase 2 extraction). These are thin wrappers binding today's component
+  // state to the pure, explicit-parameter versions — see docs/architecture/OVERVIEW.md.
+  const frameTypeForItem = (item: CanvasItem) => frameTypeForItemPure(item, assemblies, materials, project?.items ?? []);
+  const realJoinCheck = (source: CanvasItem, target: CanvasItem, sourceCorner: WindowCorner, targetCorner: WindowCorner, canvasItems = project?.items ?? []) =>
+    realJoinCheckPure(source, target, sourceCorner, targetCorner, canvasItems, assemblies, frameTypeForItem);
+  const reconcileRealJoins = (items: CanvasItem[]) => reconcileRealJoinsPure(items, assemblies, frameTypeForItem);
+  const recheckCombinationJoins = (items: CanvasItem[]) => recheckCombinationJoinsPure(items, assemblies, frameTypeForItem);
+  const synchronizeCombinationDetails = (items: CanvasItem[]) => synchronizeCombinationDetailsPure(items, assemblies);
+  const formulaValuesForItem = (item: CanvasItem) => formulaValuesForItemPure(item, materials, project?.items ?? []);
+  const calculatePartQuantity = (item: CanvasItem, part: AssemblyPart, material: Material) =>
+    calculatePartQuantityPure(item, part, material, assemblies, materials, project?.items ?? []);
   const activeDatabase = databaseDefinitions[activeDatabaseId] ?? (() => {
     const database = componentDatabases.find((item) => item.id === activeDatabaseId);
     const parentName = database?.parent === "technal" ? "Technal" : "Sidem";
@@ -1345,73 +1089,6 @@ function App() {
   const materialScopeId = materialDatabaseOverride ?? activeDatabaseId;
   const materialScopeTitle = materialScopeId === "sidem" ? "Sidem" : databaseDefinitions[materialScopeId]?.title ?? activeDatabase.title;
   const materialScopeManufacturer = materialScopeId === "markups" ? "General" : materialScopeId === "manpower" ? "Man power" : materialScopeId === "shipping" ? "Shipping" : materialScopeId === "sidem" ? "Sidem" : "Technal";
-  const joinedSidesForItem = (item: CanvasItem) => [...new Set((item.realJoinedWindowIds ?? []).flatMap((joinedId) => {
-    const joined = project?.items.find((value) => value.id === joinedId);
-    if (!joined) return [] as ("top" | "bottom" | "left" | "right")[];
-    const right = item.x + (item.inputWidth ?? 1500);
-    const bottom = item.y + (item.inputHeight ?? 1200);
-    const joinedRight = joined.x + (joined.inputWidth ?? 1500);
-    const joinedBottom = joined.y + (joined.inputHeight ?? 1200);
-    if (Math.abs(item.x - joinedRight) <= 2) return ["left"] as const;
-    if (Math.abs(right - joined.x) <= 2) return ["right"] as const;
-    if (Math.abs(item.y - joinedBottom) <= 2) return ["top"] as const;
-    if (Math.abs(bottom - joined.y) <= 2) return ["bottom"] as const;
-    return [] as ("top" | "bottom" | "left" | "right")[];
-  }))];
-  const joinLengthForItem = (item: CanvasItem) => {
-    const joinedIds = new Set([...(item.joinedWindowIds ?? []), ...(item.realJoinedWindowIds ?? [])]);
-    const right = item.x + (item.inputWidth ?? 1500);
-    const bottom = item.y + (item.inputHeight ?? 1200);
-    return [...joinedIds].reduce((total, joinedId) => {
-      const joined = project?.items.find((value) => value.id === joinedId);
-      if (!joined) return total;
-      const joinedRight = joined.x + (joined.inputWidth ?? 1500);
-      const joinedBottom = joined.y + (joined.inputHeight ?? 1200);
-      const verticalEdge = Math.abs(right - joined.x) <= 2 || Math.abs(joinedRight - item.x) <= 2;
-      if (verticalEdge) return total + Math.max(0, Math.min(bottom, joinedBottom) - Math.max(item.y, joined.y)) / 1000;
-      const horizontalEdge = Math.abs(bottom - joined.y) <= 2 || Math.abs(joinedBottom - item.y) <= 2;
-      if (horizontalEdge) return total + Math.max(0, Math.min(right, joinedRight) - Math.max(item.x, joined.x)) / 1000;
-      return total;
-    }, 0);
-  };
-  const formulaValuesForItem = (item: CanvasItem) => {
-    const joinedSides = joinedSidesForItem(item);
-    const joinedCorners = new Set<WindowCorner>();
-    if (joinedSides.includes("top")) { joinedCorners.add("top-left"); joinedCorners.add("top-right"); }
-    if (joinedSides.includes("bottom")) { joinedCorners.add("bottom-left"); joinedCorners.add("bottom-right"); }
-    if (joinedSides.includes("left")) { joinedCorners.add("top-left"); joinedCorners.add("bottom-left"); }
-    if (joinedSides.includes("right")) { joinedCorners.add("top-right"); joinedCorners.add("bottom-right"); }
-    return {
-      ...canvasFormulaValues(item, materials),
-      JoinedUp: joinedSides.includes("top") ? 1 : 0,
-      JoinedDown: joinedSides.includes("bottom") ? 1 : 0,
-      JoinedLeft: joinedSides.includes("left") ? 1 : 0,
-      JoinedRight: joinedSides.includes("right") ? 1 : 0,
-      JoinedCorners: joinedCorners.size,
-      JoinLength: joinLengthForItem(item),
-    };
-  };
-  const calculatePartQuantity = (item: CanvasItem, part: AssemblyPart, material: Material) => {
-    const width = item.inputWidth ?? 1500;
-    const height = item.inputHeight ?? 1200;
-    const values = formulaValuesForItem(item);
-    const conditionIsTrue = conditionMatches(part.conditionFormula, width, height, values);
-    const formula = conditionIsTrue
-      ? part.quantityFormula?.trim() || material.quantityFormula?.trim() || String(part.quantity)
-      : part.quantityFormulaOtherwise?.trim() || part.quantityFormulaFourPanels?.trim() || "0";
-    const base = calculateFormula(formula, width, height, values);
-    const assembly = assemblies.find((value) => value.id === item.sourceId);
-    const joinSides = joinedSidesForItem(item);
-    const joinFormulas = usesDirectJoinValues(assembly) ? [] : (assembly?.joinModifications ?? []).filter((modification) => modification.materialId === part.materialId).flatMap((modification) => joinSides.map((side) => modification[`${side}Formula`]));
-    const joinResults = joinFormulas.map((joinFormula) => calculateFormula(joinFormula.replace(/^[-+]/, ""), item.inputWidth ?? 1500, item.inputHeight ?? 1200, formulaValuesForItem(item)));
-    const joinAdjustment = joinFormulas.reduce((total, joinFormula, index) => total + (joinFormula.trim().startsWith("-") ? -joinResults[index].value : joinResults[index].value), 0);
-    const adjustmentFormula = item.materialAdjustments?.[part.materialId]?.trim();
-    if (!adjustmentFormula && !joinFormulas.length) return { formula, result: base };
-    const subtract = adjustmentFormula?.startsWith("-") ?? false;
-    const adjustment = adjustmentFormula ? calculateFormula(adjustmentFormula.replace(/^[-+]/, ""), item.inputWidth ?? 1500, item.inputHeight ?? 1200, formulaValuesForItem(item)) : { value: 0 };
-    const additions = [...joinFormulas, adjustmentFormula].filter(Boolean).map((value) => `(${value})`).join(" + ");
-    return { formula: `${formula}${additions ? ` + ${additions}` : ""}`, result: { value: Math.max(0, base.value + joinAdjustment + (subtract ? -adjustment.value : adjustment.value)), error: base.error ?? joinResults.find((result) => result.error)?.error ?? adjustment.error } };
-  };
   const liveMaterialTotals = useMemo(() => {
     const totals = new Map<string, { quantity: number; total: number; assemblyQuantity: number; formulas: { label: string; isError: boolean }[] }>();
     const add = (materialId: string, result: CalculationResult, formula?: string, opening?: string, assemblyQuantity = result.value, itemQuantity = 1) => {
@@ -1527,7 +1204,7 @@ function App() {
   const selectedMarkupName = selectedMarkupType === "typeA" ? "Type A" : selectedMarkupType === "typeB" ? "Type B" : "Type C";
 
   useEffect(() => {
-    invoke<string | null>("load_workspace")
+    workspaceGateway.loadSnapshot()
       .then((snapshot) => {
         if (snapshot) {
           const saved = JSON.parse(snapshot) as {
@@ -1678,7 +1355,7 @@ function App() {
       .finally(() => setHydrated(true));
   }, []);
   useEffect(() => {
-    invoke<string[]>("recent_workspace_saves")
+    workspaceGateway.fetchRecentSaves()
       .then(setRecentWorkspaceSaves)
       .catch((error) => console.error("Could not load recent workspace saves.", error));
   }, []);
@@ -1814,19 +1491,23 @@ function App() {
     window.addEventListener("keydown", exitJoinModeWithEscape);
     return () => window.removeEventListener("keydown", exitJoinModeWithEscape);
   }, []);
+  const currentWorkspaceSnapshot = (): WorkspaceSnapshotV1 => ({ materials, assemblies, projects, componentDatabases, weightRates, markupRates, manpowerCurrency, manpowerCosts, shippingTypes, shippingCosts, fynAssemblyMaterialTemplateVersion, companyDatabases, companyPriceTables, movedOriginalPriceTableIds });
   useEffect(() => {
     if (!hydrated) return;
     const version = ++workspaceSaveVersion.current;
-    const snapshot = JSON.stringify({ materials, assemblies, projects, componentDatabases, weightRates, markupRates, manpowerCurrency, manpowerCosts, shippingTypes, shippingCosts, fynAssemblyMaterialTemplateVersion, companyDatabases, companyPriceTables, movedOriginalPriceTableIds });
+    const snapshot = serializeWorkspaceSnapshot(currentWorkspaceSnapshot());
     setWorkspaceSaveStatus("saving");
     const saveTimer = window.setTimeout(() => {
       workspaceSaveQueue.current = workspaceSaveQueue.current
         .catch(() => undefined)
-        .then(() => invoke<void>("save_workspace", { snapshot }))
+        .then(() => workspaceGateway.saveSnapshot(snapshot))
         .then(() => {
           if (version !== workspaceSaveVersion.current) return;
           setWorkspaceSaveStatus("saved");
-          invoke<string[]>("recent_workspace_saves")
+          // Fire-and-forget: a failure here shouldn't flip the save status to
+          // "error" — the save itself already succeeded (matches pre-refactor
+          // behavior, unlike the combined chain the Ctrl+S handler uses).
+          workspaceGateway.fetchRecentSaves()
             .then(setRecentWorkspaceSaves)
             .catch((error) => console.error("Could not load recent workspace saves.", error));
         })
@@ -1847,12 +1528,12 @@ function App() {
         window.location.reload();
         return;
       }
-      const snapshot = JSON.stringify({ materials, assemblies, projects, componentDatabases, weightRates, markupRates, manpowerCurrency, manpowerCosts, shippingTypes, shippingCosts, fynAssemblyMaterialTemplateVersion, companyDatabases, companyPriceTables, movedOriginalPriceTableIds });
+      const snapshot = serializeWorkspaceSnapshot(currentWorkspaceSnapshot());
       workspaceSaveVersion.current += 1;
       setWorkspaceSaveStatus("saving");
       workspaceSaveQueue.current = workspaceSaveQueue.current
         .catch(() => undefined)
-        .then(() => invoke<void>("save_workspace", { snapshot }))
+        .then(() => persistWorkspaceSnapshot(snapshot, { refreshRecentSaves: false }).then(() => undefined))
         .catch((error) => console.error("Could not save the workspace before refreshing.", error))
         .finally(() => window.location.reload());
     };
@@ -1864,17 +1545,16 @@ function App() {
       if (screen !== "canvas" || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") return;
       event.preventDefault();
       if (!hydrated) return;
-      const snapshot = JSON.stringify({ materials, assemblies, projects, componentDatabases, weightRates, markupRates, manpowerCurrency, manpowerCosts, shippingTypes, shippingCosts, fynAssemblyMaterialTemplateVersion, companyDatabases, companyPriceTables, movedOriginalPriceTableIds });
+      const snapshot = serializeWorkspaceSnapshot(currentWorkspaceSnapshot());
       const version = ++workspaceSaveVersion.current;
       setWorkspaceSaveStatus("saving");
       workspaceSaveQueue.current = workspaceSaveQueue.current
         .catch(() => undefined)
-        .then(() => invoke<void>("save_workspace", { snapshot }))
-        .then(() => {
+        .then(() => persistWorkspaceSnapshot(snapshot))
+        .then((recentSaves) => {
           if (version === workspaceSaveVersion.current) setWorkspaceSaveStatus("saved");
-          return invoke<string[]>("recent_workspace_saves");
+          if (recentSaves) setRecentWorkspaceSaves(recentSaves);
         })
-        .then(setRecentWorkspaceSaves)
         .catch((error) => {
           console.error("Could not save the workspace.", error);
           if (version === workspaceSaveVersion.current) setWorkspaceSaveStatus("error");
@@ -1888,65 +1568,13 @@ function App() {
     const q = search.toLowerCase();
     return materials.filter((x) => (activeDatabaseId === "prices" || x.databaseId === activeDatabaseId) && `${x.name} ${x.code}`.toLowerCase().includes(q));
   }, [search, materials, activeDatabaseId]);
-  const solealAccessoryMaterials = () => [TECHNAL_GYN_DATABASE, TECHNAL_GY_DATABASE, TECHNAL_FYN_DATABASE, TECHNAL_FY_DATABASE].flatMap((databaseId) => {
-    const databaseMaterials = materials.filter((material) => material.databaseId === databaseId);
-    const legacyProfileIds = new Set(databaseMaterials.filter((material) => !material.priceTable).slice(0, 7).map((material) => material.id));
-    return databaseMaterials.filter((material) => material.priceTable === "accessories" || (!material.priceTable && !legacyProfileIds.has(material.id)));
-  });
-  const solealProfileMaterials = (databaseId: string) => {
-    const databaseMaterials = materials.filter((material) => material.databaseId === databaseId);
-    const legacyProfileIds = new Set(databaseMaterials.filter((material) => !material.priceTable).slice(0, 7).map((material) => material.id));
-    return databaseMaterials.filter((material) => material.priceTable === "profiles" || (!material.priceTable && legacyProfileIds.has(material.id)));
-  };
-  const materialFromAssemblyCode = (value: string) => {
-    const companyReference = value.trim().toLowerCase().match(/^(.+?)-?(\d+)$/);
-    if (companyReference) {
-      const companyTable = companyPriceTables.find((table) => table.referencePrefix.toLowerCase() === companyReference[1]);
-      if (companyTable) {
-        return materials.filter((material) => material.companyTableId === companyTable.id)[Number(companyReference[2]) - 1];
-      }
-    }
-    const match = value.trim().toLowerCase().match(/^(gyn|gy|fyn|fy|gp|ga|g|j|a)-?(\d+)$/);
-    if (!match) return undefined;
-    const index = Number(match[2]) - 1;
-    if (match[1] === "a") return solealAccessoryMaterials()[index];
-    const databaseId = match[1] === "gyn" ? TECHNAL_GYN_DATABASE
-      : match[1] === "gy" ? TECHNAL_GY_DATABASE
-        : match[1] === "fyn" ? TECHNAL_FYN_DATABASE
-          : match[1] === "fy" ? TECHNAL_FY_DATABASE
-            : match[1] === "j" ? SOLEAL_JOINTS_DATABASE
-              : "markups";
-    if (["gyn", "gy", "fyn", "fy"].includes(match[1])) return solealProfileMaterials(databaseId)[index];
-    const table = match[1] === "gp" ? "profiles" : match[1] === "ga" ? "accessories" : "general";
-    return materials.filter((material) => material.databaseId === databaseId && (databaseId !== "markups" ? true : table === "general" ? (!material.priceTable || material.priceTable === "general") : material.priceTable === table))[index];
-  };
-  const materialDatabaseReference = (material: Material) => {
-    const companyTable = companyPriceTables.find((table) => table.id === material.companyTableId);
-    if (companyTable) {
-      const index = materials.filter((item) => item.companyTableId === companyTable.id).findIndex((item) => item.id === material.id) + 1;
-      return index > 0 ? `${companyTable.referencePrefix}-${index}` : material.code;
-    }
-    const accessoryIndex = solealAccessoryMaterials().findIndex((item) => item.id === material.id);
-    if (accessoryIndex >= 0) return `A-${accessoryIndex + 1}`;
-    const group = material.databaseId === TECHNAL_GYN_DATABASE ? "GYn"
-      : material.databaseId === TECHNAL_GY_DATABASE ? "GY"
-        : material.databaseId === TECHNAL_FYN_DATABASE ? "FYn"
-          : material.databaseId === TECHNAL_FY_DATABASE ? "FY"
-            : material.databaseId === SOLEAL_JOINTS_DATABASE ? "J"
-              : material.databaseId === "markups" ? material.priceTable === "profiles" ? "GP" : material.priceTable === "accessories" ? "GA" : "G"
-                : material.databaseId === "sidem" ? "S"
-                  : "";
-    if (!group) return material.code;
-    const sameTable = [TECHNAL_GYN_DATABASE, TECHNAL_GY_DATABASE, TECHNAL_FYN_DATABASE, TECHNAL_FY_DATABASE].includes(material.databaseId ?? "")
-      ? solealProfileMaterials(material.databaseId ?? "")
-      : materials.filter((item) => item.databaseId === material.databaseId && (material.databaseId !== "markups" || (material.priceTable === "profiles" ? item.priceTable === "profiles" : material.priceTable === "accessories" ? item.priceTable === "accessories" : !item.priceTable || item.priceTable === "general")));
-    const index = sameTable.findIndex((item) => item.id === material.id) + 1;
-    return index > 0 ? `${group}-${index}` : material.code;
-  };
-  const defaultAssemblyCode = (materialId: string) => {
-    const material = materials.find((item) => item.id === materialId);
-    return material ? materialDatabaseReference(material) : "";
-  };
+  // Material addressing/reference-numbering scheme relocated to
+  // modules/catalog/domain/materialReference.ts (Phase 6 extraction).
+  const solealAccessoryMaterials = () => solealAccessoryMaterialsPure(materials);
+  const solealProfileMaterials = (databaseId: string) => solealProfileMaterialsPure(databaseId, materials);
+  const materialFromAssemblyCode = (value: string) => materialFromAssemblyCodePure(value, materials, companyPriceTables);
+  const materialDatabaseReference = (material: Material) => materialDatabaseReferencePure(material, materials, companyPriceTables);
+  const defaultAssemblyCode = (materialId: string) => defaultAssemblyCodePure(materialId, materials, companyPriceTables);
   const isGlassTable = activeDatabaseId === "glass";
   const tableStyle = {
     "--table-font-size": `${(isGlassTable ? 16 : 10) * (tableZoom / 100)}px`,
@@ -2263,6 +1891,13 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [assemblyAutoSaveKey, modal?.id, modal?.type]);
   const remove = (type: "material" | "assembly" | "project", id: string) => {
+    const requiredPermission =
+      type === "material"
+        ? WORKSPACE_PERMISSIONS.DELETE_MATERIAL
+        : type === "assembly"
+          ? WORKSPACE_PERMISSIONS.DELETE_ASSEMBLY
+          : WORKSPACE_PERMISSIONS.DELETE_PROJECT;
+    if (!hasPermission(permissions, requiredPermission)) return;
     if (!confirm("Delete this item? This cannot be undone.")) return;
     if (type === "material") setMaterials((x) => x.filter((v) => v.id !== id));
     if (type === "assembly") setAssemblies((x) => x.filter((v) => v.id !== id));
@@ -3455,52 +3090,7 @@ function App() {
     </>;
   };
 
-  const CostingFinancials = () => {
-    const query = search.trim().toLowerCase();
-    const markupFields = ["typeA", "typeB", "typeC"] as const;
-    const markupTotals = markupFields.map((field) => markupRates.reduce((total, rate) => total + rate[field], 0));
-    const updateMarkupRate = (id: string, field: typeof markupFields[number], value: string) => {
-      const rate = Math.max(0, Number(value) || 0);
-      setMarkupRates((rates) => rates.map((item) => item.id === id ? { ...item, [field]: rate } : item));
-    };
-    return <>
-      <section className="page-heading">
-        <div><p className="eyebrow">Database / Costing &amp; Financials</p><h1>Costing &amp; Financials</h1><p className="intro">Manage tender markups, manpower, and shipping costs in one place.</p></div>
-      </section>
-      <section className="library-panel price-book-panel">
-        <div className="toolbar">
-          <label className="search-field"><Icon name="search" size={17} /><span className="sr-only">Search</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search costing items" /></label>
-          <span className="table-zoom-readout">Table {tableZoom}% · Ctrl + scroll</span>
-        </div>
-        <section className="markup-rate-section" aria-labelledby="markups-heading">
-          <header className="price-book-section-header"><div><h2 id="markups-heading">Markups</h2><p>Only the yellow percentage values can be edited.</p></div></header>
-          <table className="markup-rate-table">
-            <thead><tr><th>Markup Cost</th><th>Type A</th><th>Type B</th><th>Type C</th></tr></thead>
-            <tbody>{markupRates.map((rate) => <tr key={rate.id}><th scope="row">{rate.name}</th>{markupFields.map((field) => <td key={field}><label><input type="number" min="0" step="0.01" value={rate[field]} onChange={(event) => updateMarkupRate(rate.id, field, event.target.value)} aria-label={`${rate.name} ${field.replace("type", "Type ")}`} /><span>%</span></label></td>)}</tr>)}</tbody>
-            <tfoot><tr><th>Total Add Rate</th>{markupTotals.map((total, index) => <td key={markupFields[index]}>{number(total)}%</td>)}</tr></tfoot>
-          </table>
-        </section>
-        <section className="manpower-cost-section" aria-labelledby="manpower-heading">
-          <header><h2 id="manpower-heading">Manpower Costs</h2></header>
-          <div className="manpower-currency"><span>Input Currency</span><input value={manpowerCurrency} onChange={(event) => setManpowerCurrency(event.target.value)} aria-label="Manpower input currency" /></div>
-          <table className="manpower-cost-table">
-            <thead><tr><th>Manpower Costs</th><th>Per Man Hour</th></tr></thead>
-            <tbody>{manpowerCosts.map((cost) => <tr key={cost.id}><th scope="row">{cost.name}</th><td><label><input type="number" min="0" step="0.01" value={cost.rate} onChange={(event) => { const rate = Math.max(0, Number(event.target.value) || 0); setManpowerCosts((costs) => costs.map((item) => item.id === cost.id ? { ...item, rate } : item)); }} aria-label={`${cost.name} cost per man hour`} /></label></td></tr>)}</tbody>
-          </table>
-        </section>
-        <section className="shipping-cost-section" aria-labelledby="shipping-heading">
-          <header><h2 id="shipping-heading">Shipping Costs</h2><button type="button" onClick={() => { const name = prompt("Shipping type name", `Type ${shippingTypes.length + 1}`); if (!name?.trim()) return; const type: ShippingType = { id: makeId(), name: name.trim() }; setShippingTypes((types) => [...types, type]); setShippingCosts((costs) => costs.map((cost) => ({ ...cost, values: { ...cost.values, [type.id]: 0 } }))); }}><Icon name="plus" size={13} /> New shipping type</button></header>
-          <div className="shipping-cost-scroll">
-            <table className="shipping-cost-table">
-              <thead><tr><th>Description</th>{shippingTypes.map((type) => <th key={type.id}><span className="shipping-type-heading"><b>{type.name}</b><button type="button" onClick={() => { const name = prompt("Shipping type name", type.name); if (!name?.trim()) return; setShippingTypes((types) => types.map((item) => item.id === type.id ? { ...item, name: name.trim() } : item)); }} aria-label={`Rename ${type.name}`} title="Rename shipping type"><Icon name="edit" size={11} /></button><button type="button" onClick={() => { if (!confirm(`Delete shipping type \"${type.name}\"?`)) return; setShippingTypes((types) => types.filter((item) => item.id !== type.id)); setShippingCosts((costs) => costs.map((cost) => { const { [type.id]: _removed, ...values } = cost.values; return { ...cost, values }; })); setMaterials((items) => items.map((material) => material.shippingTypeId === type.id ? { ...material, shippingTypeId: undefined, shippingPercentage: 0 } : material)); }} aria-label={`Delete ${type.name}`} title="Delete shipping type"><Icon name="trash" size={11} /></button></span></th>)}</tr></thead>
-              <tbody>{shippingCosts.filter((cost) => cost.name.toLowerCase().includes(query)).map((cost) => <tr key={cost.id}><th scope="row">{cost.name}</th>{shippingTypes.map((type) => <td key={type.id}><label><input type="number" min="0" step="0.01" value={cost.values[type.id] ?? 0} onChange={(event) => { const value = Math.max(0, Number(event.target.value) || 0); setShippingCosts((costs) => costs.map((item) => item.id === cost.id ? { ...item, values: { ...item.values, [type.id]: value } } : item)); }} aria-label={`${cost.name} ${type.name} shipping percentage`} /><span>%</span></label></td>)}</tr>)}</tbody>
-              <tfoot><tr><th>Total</th>{shippingTypes.map((type) => <td key={type.id}>{number(shippingCosts.reduce((total, cost) => total + (cost.values[type.id] ?? 0), 0))}%</td>)}</tr></tfoot>
-            </table>
-          </div>
-        </section>
-      </section>
-    </>;
-  };
+  // CostingFinancials relocated to modules/costing/ui/CostingFinancials.tsx (Phase 10 extraction).
 
   const ExcelWorkspace = () => {
     const sampleRows = [
@@ -3650,7 +3240,7 @@ function App() {
               return <div className="material-list-row" role="row" key={material.id}>
                 <span className="material-list-name"><Sketch path={material.sketch} label={material.name} /><b>{material.name}</b>{activeDatabaseId === "glass" && <>{material.description && <small className="glass-description">{material.description}</small>}{material.options?.[0] && <small className="glass-composition" title={material.options[0]}>{material.options[0]}</small>}</>}{activeDatabaseId !== "glass" && material.manufacturer && <small>{material.manufacturer}</small>}</span>
                 {!isPriceBook && activeDatabaseId === "glass" && <span className="glass-thickness">{inferGlassThickness(material) || "—"}</span>}
-                {isPriceBook ? <><span>{material.code}</span><span>{material.category}</span><span>{material.unit}</span><span><input className="price-book-input" aria-label={`Price for ${material.name}`} type="number" min="0" step="any" defaultValue={material.cost} onBlur={(event) => setMaterials((items) => items.map((value) => value.id === material.id ? { ...value, cost: Math.max(0, Number(event.target.value) || 0) } : value))} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} /> $</span><span /></> : <><span>{material.code}</span><span>{material.category}</span><span>{material.unit}</span><span className="formula-cell">{activeDatabaseId === "glass" ? `${money(material.cost)} / m²` : material.quantityFormula || "No formula"}</span><span className="material-list-actions"><button onClick={() => openModal("material", material.id)} aria-label={`Edit ${material.name}`}><Icon name="edit" size={15} /></button><button className="danger" onClick={() => remove("material", material.id)} aria-label={`Delete ${material.name}`}><Icon name="trash" size={15} /></button></span></>}
+                {isPriceBook ? <><span>{material.code}</span><span>{material.category}</span><span>{material.unit}</span><span><input className="price-book-input" aria-label={`Price for ${material.name}`} type="number" min="0" step="any" defaultValue={material.cost} onBlur={(event) => setMaterials((items) => items.map((value) => value.id === material.id ? { ...value, cost: Math.max(0, Number(event.target.value) || 0) } : value))} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} /> $</span><span /></> : <><span>{material.code}</span><span>{material.category}</span><span>{material.unit}</span><span className="formula-cell">{activeDatabaseId === "glass" ? `${money(material.cost)} / m²` : material.quantityFormula || "No formula"}</span><span className="material-list-actions"><button onClick={() => openModal("material", material.id)} aria-label={`Edit ${material.name}`}><Icon name="edit" size={15} /></button><PermissionGate permission={WORKSPACE_PERMISSIONS.DELETE_MATERIAL}><button className="danger" onClick={() => remove("material", material.id)} aria-label={`Delete ${material.name}`}><Icon name="trash" size={15} /></button></PermissionGate></span></>}
               </div>;
             })}
           </div> : <div className="material-grid">
@@ -3735,12 +3325,14 @@ function App() {
     return <>
       <section className="page-heading">
         <div><p className="eyebrow">Assemblies / {assemblyCategoryName}</p><h1>{assemblyCategoryName} assemblies</h1><p className="intro">Reusable technical components that calculate material quantities from their formulas.</p></div>
-        <button className="primary-button" onClick={() => openModal("assembly")}><Icon name="plus" /> {isTwoRailWindowPage || isFlyScreenPage || isHingeWindowPage || isFixedWindowPage || isTiltAndTurnPage ? "Add type" : "Add assembly"}</button>
+        <PermissionGate permission={WORKSPACE_PERMISSIONS.CREATE_ASSEMBLY}>
+          <button className="primary-button" onClick={() => openModal("assembly")}><Icon name="plus" /> {isTwoRailWindowPage || isFlyScreenPage || isHingeWindowPage || isFixedWindowPage || isTiltAndTurnPage ? "Add type" : "Add assembly"}</button>
+        </PermissionGate>
       </section>
       <section className="library-panel">
         <div className="toolbar"><label className="search-field"><Icon name="search" size={17} /><span className="sr-only">Search assemblies</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search assemblies" /></label><span className="item-count">{systemAssemblies.length} assemblies</span></div>
         <div className={`material-grid ${isTwoRailWindowPage || isFlyScreenPage || isHingeWindowPage || isFixedWindowPage || isTiltAndTurnPage ? "assembly-type-grid" : ""}`}>
-          {systemAssemblies.map((assembly) => <article className="material-card" key={assembly.id}><div className="card-art"><Sketch path={assembly.sketch} label={assembly.name} /></div><div className="card-content"><h2>{assembly.name}</h2><div className="card-actions"><button onClick={() => openModal("assembly", assembly.id)}><Icon name="edit" size={15} /> Edit</button><button className="danger" onClick={() => remove("assembly", assembly.id)}><Icon name="trash" size={15} /> Delete</button></div></div></article>)}
+          {systemAssemblies.map((assembly) => <article className="material-card" key={assembly.id}><div className="card-art"><Sketch path={assembly.sketch} label={assembly.name} /></div><div className="card-content"><h2>{assembly.name}</h2><div className="card-actions"><button onClick={() => openModal("assembly", assembly.id)}><Icon name="edit" size={15} /> Edit</button><PermissionGate permission={WORKSPACE_PERMISSIONS.DELETE_ASSEMBLY}><button className="danger" onClick={() => remove("assembly", assembly.id)}><Icon name="trash" size={15} /> Delete</button></PermissionGate></div></div></article>)}
           {!systemAssemblies.length && <p className="price-book-empty">No {assemblyCategoryName} assemblies yet. Add one to start building reusable components.</p>}
         </div>
       </section>
@@ -3757,9 +3349,11 @@ function App() {
             layout canvas.
           </p>
         </div>
-        <button className="primary-button" onClick={() => openModal("project")}>
-          <Icon name="plus" /> New project
-        </button>
+        <PermissionGate permission={WORKSPACE_PERMISSIONS.CREATE_PROJECT}>
+          <button className="primary-button" onClick={() => openModal("project")}>
+            <Icon name="plus" /> New project
+          </button>
+        </PermissionGate>
       </section>
       <section className="project-list">
         {projects.filter((p) => p.year === activeProjectYear).map((p) => (
@@ -3790,13 +3384,15 @@ function App() {
               >
                 <Icon name="edit" />
               </button>
-              <button
-                className="icon-button danger-icon"
-                onClick={() => remove("project", p.id)}
-                aria-label={`Delete ${p.name}`}
-              >
-                <Icon name="trash" />
-              </button>
+              <PermissionGate permission={WORKSPACE_PERMISSIONS.DELETE_PROJECT}>
+                <button
+                  className="icon-button danger-icon"
+                  onClick={() => remove("project", p.id)}
+                  aria-label={`Delete ${p.name}`}
+                >
+                  <Icon name="trash" />
+                </button>
+              </PermissionGate>
             </div>
           </article>
         ))}
@@ -3909,7 +3505,7 @@ function App() {
                 <div><span>Glass takeoff</span><b>{money(glassTakeoffTotal)}</b></div>
                 <div><span>Manpower</span><b>{money(manpowerTotal)}</b></div>
                 <div className="direct-cost"><span>Direct cost</span><b>{money(directCost)}</b></div>
-                <div className="selling-cost"><span>Selling cost · {selectedMarkupName} ({number(selectedMarkupRate)}%)</span><b>{money(directCost / Math.max(0.01, 1 - selectedMarkupRate / 100))}</b></div>
+                <div className="selling-cost"><span>Selling cost · {selectedMarkupName} ({number(selectedMarkupRate)}%)</span><b>{money(sellingPriceFromDirectCost(directCost, selectedMarkupRate))}</b></div>
               </section>
               <div className="canvas-bottom-tools"><button className={takeoffPanel === "material" ? "selected" : ""} onClick={() => { setItemMaterialPanelId(null); setTakeoffPanel((panel) => panel === "material" ? null : "material"); }}>Material</button><button className={takeoffPanel === "glass" ? "selected" : ""} onClick={() => setTakeoffPanel((panel) => panel === "glass" ? null : "glass")}>Glass</button><button className={takeoffPanel === "manpower" ? "selected" : ""} onClick={() => setTakeoffPanel((panel) => panel === "manpower" ? null : "manpower")}>Manpower</button></div>
               {selectedGlassMaterialId && <div className="glass-assign-hint">Glass assignment active: {materials.find((material) => material.id === selectedGlassMaterialId)?.name ?? "Selected glass"}. Click a window area to apply it.</div>}
@@ -4091,39 +3687,47 @@ function App() {
           <Icon name="arrow" size={16} />
         </button>
         <nav>
-          <button
-            className={screen === "projects" || screen === "canvas" ? "active" : ""}
-            onClick={() => { setScreen("projects"); setProjectsOpen((open) => !open); }}
-            aria-expanded={projectsOpen}
-          >
-            <Icon name="folder" /> <span>Projects</span><small className="nav-caret">{projectsOpen ? "âŒ„" : "â€º"}</small>
-          </button>
-          {projectsOpen && <div className="database-nav project-year-nav">
-            {projectYears.map((year) => <button key={year} className={(screen === "projects" || screen === "canvas") && activeProjectYear === year ? "active" : ""} onClick={() => { setActiveProjectYear(year); setScreen("projects"); }}><span>{year}</span></button>)}
-          </div>}
-          <button className={screen === "database" ? "active" : ""} onClick={() => { setScreen("database"); setDatabaseOpen((open) => !open); }}>
-            <Icon name="box" /> <span>Database</span><small className="nav-caret">{databaseOpen ? "⌄" : "›"}</small>
-          </button>
-          {databaseOpen && <div className="database-nav">
-            <button className={screen === "database" && activeDatabaseId === "prices" ? "active" : ""} onClick={() => { setActiveDatabaseId("prices"); setScreen("database"); }}><span>Material database</span></button>
-            <button className={screen === "database" && activeDatabaseId === "glass" ? "active" : ""} onClick={() => { setActiveDatabaseId("glass"); setScreen("database"); }}><span>Glass price</span></button>
-            <button className={screen === "database" && activeDatabaseId === "costing-financials" ? "active" : ""} onClick={() => { setActiveDatabaseId("costing-financials"); setScreen("database"); }}><span>Costing &amp; Financials</span></button>
-          </div>}
-          <button className={screen === "assemblies" ? "active" : ""} onClick={() => { setScreen("assemblies"); setAssembliesOpen((open) => !open); }} aria-expanded={assembliesOpen}>
-            <Icon name="layers" /> <span>Assemblies</span><small className="nav-caret">{assembliesOpen ? "⌄" : "›"}</small>
-          </button>
-          {assembliesOpen && <div className="database-nav">
-            <button className={screen === "assemblies" && activeDatabaseId === TWO_RAIL_WINDOW_PAGE ? "active" : ""} onClick={() => { setActiveAssemblySystem("technal"); setActiveDatabaseId(TWO_RAIL_WINDOW_PAGE); setScreen("assemblies"); }}><span>2 rail system</span></button>
-            <button className={screen === "assemblies" && activeDatabaseId === HINGE_WINDOW_PAGE ? "active" : ""} onClick={() => { setActiveAssemblySystem("technal"); setActiveDatabaseId(HINGE_WINDOW_PAGE); setScreen("assemblies"); }}><span>Hinged system</span></button>
-            <button className={screen === "assemblies" && activeDatabaseId === FIXED_WINDOW_PAGE ? "active" : ""} onClick={() => { setActiveAssemblySystem("technal"); setActiveDatabaseId(FIXED_WINDOW_PAGE); setScreen("assemblies"); }}><span>Fixed window</span></button>
-            <button className={screen === "assemblies" && activeDatabaseId === FLY_SCREEN_PAGE ? "active" : ""} onClick={() => { setActiveAssemblySystem("technal"); setActiveDatabaseId(FLY_SCREEN_PAGE); setScreen("assemblies"); }}><span>Fly screen</span></button>
-            <button className={screen === "assemblies" && activeDatabaseId === TILT_AND_TURN_PAGE ? "active" : ""} onClick={() => { setActiveAssemblySystem("technal"); setActiveDatabaseId(TILT_AND_TURN_PAGE); setScreen("assemblies"); }}><span>Tilt and Turn</span></button>
-            <div className="database-nav-parent"><button className={screen === "assemblies" && activeAssemblySystem === "sidem" ? "active" : ""} onClick={() => { setActiveAssemblySystem("sidem"); setActiveDatabaseId("sidem"); setScreen("assemblies"); }}><span>Sidem</span></button><button className="database-add" onClick={() => openNewDatabase("sidem")} aria-label="Add Sidem assembly database" title="Add Sidem assembly database"><Icon name="plus" size={14} /></button></div>
-            <div className="database-nav component-nav">{componentDatabases.filter((item) => item.parent === "sidem").map((database) => <button key={database.id} className={screen === "assemblies" && activeAssemblySystem === "sidem" && activeDatabaseId === database.id ? "active" : ""} onClick={() => { setActiveAssemblySystem("sidem"); setActiveDatabaseId(database.id); setScreen("assemblies"); }}><span>{database.name}</span></button>)}</div>
-          </div>}
-          <button className={screen === "excel" ? "active" : ""} onClick={() => setScreen("excel")}>
-            <Icon name="box" /> <span>Excel</span>
-          </button>
+          <PermissionGate permission={WORKSPACE_PERMISSIONS.VIEW_PROJECTS}>
+            <button
+              className={screen === "projects" || screen === "canvas" ? "active" : ""}
+              onClick={() => { setScreen("projects"); setProjectsOpen((open) => !open); }}
+              aria-expanded={projectsOpen}
+            >
+              <Icon name="folder" /> <span>Projects</span><small className="nav-caret">{projectsOpen ? "âŒ„" : "â€º"}</small>
+            </button>
+            {projectsOpen && <div className="database-nav project-year-nav">
+              {projectYears.map((year) => <button key={year} className={(screen === "projects" || screen === "canvas") && activeProjectYear === year ? "active" : ""} onClick={() => { setActiveProjectYear(year); setScreen("projects"); }}><span>{year}</span></button>)}
+            </div>}
+          </PermissionGate>
+          <PermissionGate permission={WORKSPACE_PERMISSIONS.VIEW_DATABASE}>
+            <button className={screen === "database" ? "active" : ""} onClick={() => { setScreen("database"); setDatabaseOpen((open) => !open); }}>
+              <Icon name="box" /> <span>Database</span><small className="nav-caret">{databaseOpen ? "⌄" : "›"}</small>
+            </button>
+            {databaseOpen && <div className="database-nav">
+              <button className={screen === "database" && activeDatabaseId === "prices" ? "active" : ""} onClick={() => { setActiveDatabaseId("prices"); setScreen("database"); }}><span>Material database</span></button>
+              <button className={screen === "database" && activeDatabaseId === "glass" ? "active" : ""} onClick={() => { setActiveDatabaseId("glass"); setScreen("database"); }}><span>Glass price</span></button>
+              <button className={screen === "database" && activeDatabaseId === "costing-financials" ? "active" : ""} onClick={() => { setActiveDatabaseId("costing-financials"); setScreen("database"); }}><span>Costing &amp; Financials</span></button>
+            </div>}
+          </PermissionGate>
+          <PermissionGate permission={WORKSPACE_PERMISSIONS.VIEW_ASSEMBLIES}>
+            <button className={screen === "assemblies" ? "active" : ""} onClick={() => { setScreen("assemblies"); setAssembliesOpen((open) => !open); }} aria-expanded={assembliesOpen}>
+              <Icon name="layers" /> <span>Assemblies</span><small className="nav-caret">{assembliesOpen ? "⌄" : "›"}</small>
+            </button>
+            {assembliesOpen && <div className="database-nav">
+              <button className={screen === "assemblies" && activeDatabaseId === TWO_RAIL_WINDOW_PAGE ? "active" : ""} onClick={() => { setActiveAssemblySystem("technal"); setActiveDatabaseId(TWO_RAIL_WINDOW_PAGE); setScreen("assemblies"); }}><span>2 rail system</span></button>
+              <button className={screen === "assemblies" && activeDatabaseId === HINGE_WINDOW_PAGE ? "active" : ""} onClick={() => { setActiveAssemblySystem("technal"); setActiveDatabaseId(HINGE_WINDOW_PAGE); setScreen("assemblies"); }}><span>Hinged system</span></button>
+              <button className={screen === "assemblies" && activeDatabaseId === FIXED_WINDOW_PAGE ? "active" : ""} onClick={() => { setActiveAssemblySystem("technal"); setActiveDatabaseId(FIXED_WINDOW_PAGE); setScreen("assemblies"); }}><span>Fixed window</span></button>
+              <button className={screen === "assemblies" && activeDatabaseId === FLY_SCREEN_PAGE ? "active" : ""} onClick={() => { setActiveAssemblySystem("technal"); setActiveDatabaseId(FLY_SCREEN_PAGE); setScreen("assemblies"); }}><span>Fly screen</span></button>
+              <button className={screen === "assemblies" && activeDatabaseId === TILT_AND_TURN_PAGE ? "active" : ""} onClick={() => { setActiveAssemblySystem("technal"); setActiveDatabaseId(TILT_AND_TURN_PAGE); setScreen("assemblies"); }}><span>Tilt and Turn</span></button>
+              <div className="database-nav-parent"><button className={screen === "assemblies" && activeAssemblySystem === "sidem" ? "active" : ""} onClick={() => { setActiveAssemblySystem("sidem"); setActiveDatabaseId("sidem"); setScreen("assemblies"); }}><span>Sidem</span></button><button className="database-add" onClick={() => openNewDatabase("sidem")} aria-label="Add Sidem assembly database" title="Add Sidem assembly database"><Icon name="plus" size={14} /></button></div>
+              <div className="database-nav component-nav">{componentDatabases.filter((item) => item.parent === "sidem").map((database) => <button key={database.id} className={screen === "assemblies" && activeAssemblySystem === "sidem" && activeDatabaseId === database.id ? "active" : ""} onClick={() => { setActiveAssemblySystem("sidem"); setActiveDatabaseId(database.id); setScreen("assemblies"); }}><span>{database.name}</span></button>)}</div>
+            </div>}
+          </PermissionGate>
+          <PermissionGate permission={WORKSPACE_PERMISSIONS.VIEW_EXCEL}>
+            <button className={screen === "excel" ? "active" : ""} onClick={() => setScreen("excel")}>
+              <Icon name="box" /> <span>Excel</span>
+            </button>
+          </PermissionGate>
         </nav>
         <div className="sidebar-note">
           <span className={`status-dot ${workspaceSaveStatus}`} /> Local workspace
@@ -4135,11 +3739,27 @@ function App() {
       <main className="main-content">
         <header className="topbar">
           {screen === "database" ? <div className="system-top-actions"><button type="button" className={activeDatabaseId === "prices" ? "active" : ""} onClick={() => setActiveDatabaseId("prices")}>Soleal Database</button>{companyDatabases.map((database) => <button key={database.id} type="button" className={activeDatabaseId === database.id ? "active" : ""} onClick={() => setActiveDatabaseId(database.id)}>{database.name} Database</button>)}<button type="button" className="add-system-button" onClick={openNewCompanyDatabase}><Icon name="plus" size={14} /> Add other system</button></div> : <div className="breadcrumb">{screen === "canvas" ? "Project canvas" : screen[0].toUpperCase() + screen.slice(1)}</div>}
-          <button className="profile-button" aria-label="User profile">
-            MB
-          </button>
+          <ProfileMenu />
         </header>
-        {screen === "database" && (activeDatabaseId === "prices" || companyDatabases.some((database) => database.id === activeDatabaseId) ? <PriceBook /> : activeDatabaseId === "costing-financials" ? <CostingFinancials /> : <Library type="material" />)}
+        {screen === "database" && (activeDatabaseId === "prices" || companyDatabases.some((database) => database.id === activeDatabaseId) ? <PriceBook /> : activeDatabaseId === "costing-financials" ? (
+          <CostingFinancials
+            Icon={Icon}
+            search={search}
+            setSearch={setSearch}
+            tableZoom={tableZoom}
+            markupRates={markupRates}
+            setMarkupRates={setMarkupRates}
+            manpowerCurrency={manpowerCurrency}
+            setManpowerCurrency={setManpowerCurrency}
+            manpowerCosts={manpowerCosts}
+            setManpowerCosts={setManpowerCosts}
+            shippingTypes={shippingTypes}
+            setShippingTypes={setShippingTypes}
+            shippingCosts={shippingCosts}
+            setShippingCosts={setShippingCosts}
+            setMaterials={setMaterials}
+          />
+        ) : <Library type="material" />)}
         {screen === "assemblies" && <AssemblyLibrary />}
         {screen === "projects" && <Projects />}
         {screen === "canvas" && <Canvas />}

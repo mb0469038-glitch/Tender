@@ -168,6 +168,8 @@ export type Project = {
   canvases?: ProjectCanvas[];
 };
 export type ComponentDatabase = { id: string; name: string; parent: "technal" | "sidem" };
+export type CompanyDatabase = { id: string; name: string };
+export type CompanyPriceTable = { id: string; companyDatabaseId: string; name: string; referencePrefix: string };
 export type MarkupRate = { id: string; name: string; typeA: number; typeB: number; typeC: number };
 export type ManpowerCost = { id: string; name: string; rate: number };
 export type ShippingType = { id: string; name: string };

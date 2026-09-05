@@ -1,8 +1,14 @@
-use rusqlite::{params, Connection, OptionalExtension};
-use std::path::PathBuf;
-use tauri::Manager;
+mod auth;
+mod db;
 
-struct DatabasePath(PathBuf);
+use auth::commands::{
+    change_password, create_role, create_user, deactivate_user, delete_role, get_current_session,
+    list_permissions, list_roles, list_users, login, logout, set_role_permissions, set_user_roles,
+    update_role, update_user, SessionState,
+};
+use db::DatabasePath;
+use rusqlite::{params, Connection, OptionalExtension};
+use tauri::Manager;
 
 #[tauri::command]
 fn load_workspace(database: tauri::State<'_, DatabasePath>) -> Result<Option<String>, String> {
@@ -70,10 +76,31 @@ pub fn run() {
                     saved_at TEXT NOT NULL
                 );",
             ).map_err(|error| error.to_string())?;
+            db::migrations::run_auth_migrations(&connection).map_err(|error| error.to_string())?;
             app.manage(DatabasePath(database_path));
+            app.manage(SessionState::default());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![load_workspace, save_workspace, recent_workspace_saves])
+        .invoke_handler(tauri::generate_handler![
+            load_workspace,
+            save_workspace,
+            recent_workspace_saves,
+            login,
+            logout,
+            get_current_session,
+            change_password,
+            list_users,
+            create_user,
+            update_user,
+            deactivate_user,
+            set_user_roles,
+            list_roles,
+            create_role,
+            update_role,
+            delete_role,
+            set_role_permissions,
+            list_permissions,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
