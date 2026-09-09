@@ -47,6 +47,9 @@ import { useMaterialDatabasesState } from "./modules/catalog/application/useMate
 import { defaultComponentDatabases } from "./modules/catalog/domain/defaults";
 import { useCatalogItemsState } from "./modules/catalog/application/useCatalogItemsState";
 import { useProjectsState } from "./modules/projects/application/useProjectsState";
+import { optimizeCuts, recommendStockLength } from "./modules/execution/domain/cuttingOptimizer";
+import type { OptimizationCut } from "./modules/execution/domain/cuttingOptimizer";
+import { CuttingListSpreadsheet } from "./modules/execution/ui/CuttingListSpreadsheet";
 import {
   defaultAssemblyCode as defaultAssemblyCodePure,
   materialDatabaseReference as materialDatabaseReferencePure,
@@ -63,6 +66,8 @@ import type {
   ComponentDatabase,
   CompanyDatabase,
   CompanyPriceTable,
+  ExecutionProject,
+  ExecutionProjectFile,
   FrameType,
   AssemblyNameRule,
   JoinPropertyMatch,
@@ -81,24 +86,8 @@ import type {
 import "./App.css";
 
 const makeId = () => crypto.randomUUID();
-type StockCatalogueItem = {
-  id: string;
-  name: string;
-  reference: string;
-  category: "accessories" | "profiles";
-  massPerLm: number;
-  sketch: string;
-};
 type TableMove = { tableId?: string; sourceTableId?: string; sourceDatabaseId: string; name: string; referencePrefix: string; materialIds: string[] };
-// Kept independent from Tender Helping System data until the stock/costing connection is designed.
-const stockCatalogue: StockCatalogueItem[] = [
-  { id: "stock-accessory-1", name: "Corner cleat", reference: "ACC-CL-001", category: "accessories", massPerLm: 0, sketch: "M22 20H78V80H22ZM36 34H64V66H36Z" },
-  { id: "stock-accessory-2", name: "Sliding roller", reference: "ACC-SR-002", category: "accessories", massPerLm: 0, sketch: "M18 42H82V66H18ZM30 42V30H70V42M34 78a10 10 0 1 0 0-20 10 10 0 0 0 0 20M66 78a10 10 0 1 0 0-20 10 10 0 0 0 0 20" },
-  { id: "stock-accessory-3", name: "Handle set", reference: "ACC-HS-003", category: "accessories", massPerLm: 0, sketch: "M30 25H48V75H30ZM48 45H76V55H48" },
-  { id: "stock-profile-1", name: "Frame profile 45 mm", reference: "AL-FR-045", category: "profiles", massPerLm: 1.42, sketch: "M18 18H82V82H18ZM32 32H68V68H32Z" },
-  { id: "stock-profile-2", name: "Sash profile 38 mm", reference: "AL-SA-038", category: "profiles", massPerLm: 1.08, sketch: "M15 20H85V80H15ZM27 32H73V68H27M46 20V68" },
-  { id: "stock-profile-3", name: "Mullion profile", reference: "AL-MU-060", category: "profiles", massPerLm: 1.86, sketch: "M20 15H80V85H20ZM32 27H68V73H32M20 45H68" },
-];
+type ExecutionWorkspacePage = "cutting-list" | "optimization" | "material-order" | "database";
 const JOIN_CAPTURE_DISTANCE_MM = 350;
 const TECHNAL_MANUFACTURER = "Technal";
 const TECHNAL_ASSEMBLY_ID = "technal-2-slider-window";
@@ -143,15 +132,6 @@ const completeFynJoinModifications = (rows: JoinModification[] = []) => [...defa
 const TECHNAL_GY_DATABASE = "technal-gy";
 const TECHNAL_FY_DATABASE = "technal-fy";
 const SOLEAL_JOINTS_DATABASE = "soleal-joints";
-const isSolealJointMaterial = (material: Material) => /\bjoints?\b/i.test(`${material.name} ${material.category}`) && !/\bcouvre\s+joint\b/i.test(material.name);
-const solealProfileNames: Record<string, string> = {
-  "141021": "Traverse 32mm",
-  GY1300: "Ouvrant Lateral 24mm",
-  GY2302: "Ouvrant Central 24mm",
-  GY2202: "Traverse 32mm",
-  GY2225: "Ouvrant Lateral 24mm",
-  GY2216: "Ouvrant Central 24mm",
-};
 const TWO_RAIL_WINDOW_PAGE = "two-rail-window";
 const FLY_SCREEN_PAGE = "fly-screen";
 const HINGE_WINDOW_PAGE = "hinge-window";
@@ -480,6 +460,7 @@ function Icon({
   | "box"
   | "layers"
   | "folder"
+  | "copy"
   | "edit"
   | "trash"
   | "pen"
@@ -507,6 +488,12 @@ function Icon({
     ),
     folder: (
       <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+    ),
+    copy: (
+      <>
+        <rect x="8" y="8" width="11" height="11" rx="1" />
+        <path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" />
+      </>
     ),
     edit: (
       <>
@@ -720,6 +707,18 @@ function App() {
     undoProjectHistory, setUndoProjectHistory,
     redoProjectHistory, setRedoProjectHistory,
   } = useProjectsState(projectData);
+  const [executionProjects, setExecutionProjects] = useState<ExecutionProject[]>([]);
+  const [selectedExecutionProjectId, setSelectedExecutionProjectId] = useState("");
+  const [executionFolderId, setExecutionFolderId] = useState<string | null>(null);
+  const [selectedExecutionWorkspaceId, setSelectedExecutionWorkspaceId] = useState("");
+  const [executionWorkspacePage, setExecutionWorkspacePage] = useState<ExecutionWorkspacePage>("cutting-list");
+  const [workspaceStockDatabaseId, setWorkspaceStockDatabaseId] = useState("prices");
+  const [workspaceStockSearch, setWorkspaceStockSearch] = useState("");
+  const [workspaceStockAssemblyType, setWorkspaceStockAssemblyType] = useState("");
+  const [workspaceOptimizationError, setWorkspaceOptimizationError] = useState("");
+  const [newExecutionItemType, setNewExecutionItemType] = useState<"folder" | "optimization-material-order" | null>(null);
+  const [newExecutionItemName, setNewExecutionItemName] = useState("");
+  const [executionNewMenuOpen, setExecutionNewMenuOpen] = useState(false);
   const {
     markupRates, setMarkupRates,
     manpowerCurrency, setManpowerCurrency,
@@ -731,8 +730,6 @@ function App() {
   const [modal, setModal] = useState<Modal>(null);
   const [materialDatabaseOverride, setMaterialDatabaseOverride] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [stockSearch, setStockSearch] = useState("");
-  const [stockSection, setStockSection] = useState<"accessories" | "profiles">("accessories");
   const [assemblyTypeFilter, setAssemblyTypeFilter] = useState("");
   const [materialView, setMaterialView] = useState<"list" | "cards">("list");
   const [tableZoom, setTableZoom] = useState(100);
@@ -758,6 +755,7 @@ function App() {
     movedOriginalPriceTableIds, setMovedOriginalPriceTableIds,
   } = useMaterialDatabasesState();
   const [rateMethodMenu, setRateMethodMenu] = useState<{ materialId: string; tableId: string } | null>(null);
+  const [stockLengthMenu, setStockLengthMenu] = useState<{ materialId: string; entryId: string } | null>(null);
   const [newDatabaseParent, setNewDatabaseParent] = useState<"technal" | "sidem" | null>(null);
   const [newDatabaseName, setNewDatabaseName] = useState("");
   const [newCompanyDatabaseOpen, setNewCompanyDatabaseOpen] = useState(false);
@@ -1211,6 +1209,7 @@ function App() {
             materials: Material[];
             assemblies: Assembly[];
             projects: Project[];
+            executionProjects?: ExecutionProject[];
             componentDatabases?: ComponentDatabase[];
             weightRates?: Record<string, number>;
             markupRates?: MarkupRate[];
@@ -1318,6 +1317,9 @@ function App() {
             const canvases = project.canvases?.length ? project.canvases.map((canvas) => ({ ...canvas, items: normalizeItems(canvas.items) })) : [{ id: "opening-1", name: "Opening 1", items: normalizeItems(project.items) }];
             return { ...project, year: project.year ?? "2026", company: project.company ?? "", location: project.location ?? "Lebanon", canvases, items: canvases[0].items };
           }));
+          setExecutionProjects((saved.executionProjects ?? [])
+            .filter((project) => project.id && project.name?.trim())
+            .map((project) => ({ ...project, files: project.files ?? [] })));
           setComponentDatabases(() => {
             const savedDatabases = saved.componentDatabases ?? [];
             return [...defaultComponentDatabases, ...savedDatabases.filter((item) => item.id !== TECHNAL_2_SLIDER_DATABASE && item.id !== TECHNAL_FY_DATABASE && !defaultComponentDatabases.some((defaultItem) => defaultItem.id === item.id))];
@@ -1465,19 +1467,6 @@ function App() {
     });
   }, [hydrated]);
   useEffect(() => {
-    if (!hydrated) return;
-    setMaterials((items) => items.map((material) => {
-      const name = solealProfileNames[material.code] ?? material.name;
-      if (/\bcouvre\s+joint\b/i.test(material.name))
-        return material.databaseId === TECHNAL_GYN_DATABASE && material.priceTable === "accessories"
-          ? name === material.name ? material : { ...material, name }
-          : { ...material, name, databaseId: TECHNAL_GYN_DATABASE, priceTable: "accessories" };
-      return isSolealJointMaterial(material) && material.databaseId !== SOLEAL_JOINTS_DATABASE
-        ? { ...material, name, databaseId: SOLEAL_JOINTS_DATABASE }
-        : name === material.name ? material : { ...material, name };
-    }));
-  }, [hydrated]);
-  useEffect(() => {
     const exitJoinModeWithEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setJoinModeItemId(null);
@@ -1491,7 +1480,7 @@ function App() {
     window.addEventListener("keydown", exitJoinModeWithEscape);
     return () => window.removeEventListener("keydown", exitJoinModeWithEscape);
   }, []);
-  const currentWorkspaceSnapshot = (): WorkspaceSnapshotV1 => ({ materials, assemblies, projects, componentDatabases, weightRates, markupRates, manpowerCurrency, manpowerCosts, shippingTypes, shippingCosts, fynAssemblyMaterialTemplateVersion, companyDatabases, companyPriceTables, movedOriginalPriceTableIds });
+  const currentWorkspaceSnapshot = (): WorkspaceSnapshotV1 => ({ materials, assemblies, projects, executionProjects, componentDatabases, weightRates, markupRates, manpowerCurrency, manpowerCosts, shippingTypes, shippingCosts, fynAssemblyMaterialTemplateVersion, companyDatabases, companyPriceTables, movedOriginalPriceTableIds });
   useEffect(() => {
     if (!hydrated) return;
     const version = ++workspaceSaveVersion.current;
@@ -1517,7 +1506,7 @@ function App() {
         });
     }, 600);
     return () => window.clearTimeout(saveTimer);
-  }, [materials, assemblies, projects, componentDatabases, weightRates, markupRates, manpowerCurrency, manpowerCosts, shippingTypes, shippingCosts, fynAssemblyMaterialTemplateVersion, companyDatabases, companyPriceTables, movedOriginalPriceTableIds, hydrated]);
+  }, [materials, assemblies, projects, executionProjects, componentDatabases, weightRates, markupRates, manpowerCurrency, manpowerCosts, shippingTypes, shippingCosts, fynAssemblyMaterialTemplateVersion, companyDatabases, companyPriceTables, movedOriginalPriceTableIds, hydrated]);
   useEffect(() => {
     const refreshWithKeyboard = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "r") return;
@@ -1539,7 +1528,7 @@ function App() {
     };
     window.addEventListener("keydown", refreshWithKeyboard);
     return () => window.removeEventListener("keydown", refreshWithKeyboard);
-  }, [materials, assemblies, projects, componentDatabases, weightRates, markupRates, manpowerCurrency, manpowerCosts, shippingTypes, shippingCosts, fynAssemblyMaterialTemplateVersion, companyDatabases, companyPriceTables, movedOriginalPriceTableIds, hydrated]);
+  }, [materials, assemblies, projects, executionProjects, componentDatabases, weightRates, markupRates, manpowerCurrency, manpowerCosts, shippingTypes, shippingCosts, fynAssemblyMaterialTemplateVersion, companyDatabases, companyPriceTables, movedOriginalPriceTableIds, hydrated]);
   useEffect(() => {
     const saveCanvasWithKeyboard = (event: KeyboardEvent) => {
       if (screen !== "canvas" || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") return;
@@ -1562,7 +1551,7 @@ function App() {
     };
     window.addEventListener("keydown", saveCanvasWithKeyboard);
     return () => window.removeEventListener("keydown", saveCanvasWithKeyboard);
-  }, [screen, materials, assemblies, projects, componentDatabases, weightRates, markupRates, manpowerCurrency, manpowerCosts, shippingTypes, shippingCosts, fynAssemblyMaterialTemplateVersion, companyDatabases, companyPriceTables, movedOriginalPriceTableIds, hydrated]);
+  }, [screen, materials, assemblies, projects, executionProjects, componentDatabases, weightRates, markupRates, manpowerCurrency, manpowerCosts, shippingTypes, shippingCosts, fynAssemblyMaterialTemplateVersion, companyDatabases, companyPriceTables, movedOriginalPriceTableIds, hydrated]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -1594,7 +1583,7 @@ function App() {
     setTableZoom((current) => Math.max(65, Math.min(140, current + (event.deltaY < 0 ? 5 : -5))));
   };
   const openModal = (
-    type: "material" | "assembly" | "project",
+    type: "material" | "assembly" | "project" | "executionProject",
     id?: string,
     newMaterialPriceTable?: Material["priceTable"],
   ) => {
@@ -1606,12 +1595,14 @@ function App() {
         ? materials.find((x) => x.id === id)
         : type === "assembly"
           ? assemblies.find((x) => x.id === id)
-          : projects.find((x) => x.id === id);
+          : type === "project"
+            ? projects.find((x) => x.id === id)
+            : executionProjects.find((x) => x.id === id);
     const material =
       record && "priceMethod" in record ? (record as Material) : undefined;
     const assembly =
       record && "rules" in record ? (record as Assembly) : undefined;
-    setFormName(record?.name ?? (type === "project" ? "Project 1" : ""));
+    setFormName(record?.name ?? ((type === "project" || type === "executionProject") ? "Project 1" : ""));
     setFormCode(
       "code" in (record ?? {}) ? (record as Material | Assembly).code : "",
     );
@@ -1627,9 +1618,9 @@ function App() {
     setAssemblyColor(assembly?.color ?? assemblyDefaultColor(assembly?.id));
     setAssemblyCanvasDefaults({ ...defaultAssemblyCanvasDefaults, ...assembly?.canvasDefaults });
     setRules(assembly?.rules ?? []);
-    setFormClient(record && "client" in record ? record.client : type === "project" ? "Client" : "");
-    setFormCompany(record && "company" in record ? record.company ?? "" : type === "project" ? "Company" : "");
-    setFormLocation(record && "location" in record ? record.location ?? "" : type === "project" ? "Lebanon" : "");
+    setFormClient(record && "client" in record ? record.client : (type === "project" || type === "executionProject") ? "Client" : "");
+    setFormCompany(record && "company" in record ? record.company ?? "" : (type === "project" || type === "executionProject") ? "Company" : "");
+    setFormLocation(record && "location" in record ? record.location ?? "" : (type === "project" || type === "executionProject") ? "Lebanon" : "");
     const editableParts = record && "parts" in record
       ? record.parts.map((part) => ({ id: part.id ?? makeId(), part }))
       : [];
@@ -1871,6 +1862,18 @@ function App() {
         setScreen("canvas");
       }
     }
+    if (modal.type === "executionProject") {
+      const item: ExecutionProject = {
+        id: makeId(),
+        name: formName.trim(),
+        client: formClient.trim(),
+        company: formCompany.trim() || undefined,
+        location: formLocation.trim(),
+        createdAt: new Date().toISOString(),
+        files: [],
+      };
+      setExecutionProjects((items) => [item, ...items]);
+    }
     if (closeAfterSave) closeModal();
   };
   const assemblyAutoSaveKey = modal?.type === "assembly" && modal.id
@@ -1890,13 +1893,15 @@ function App() {
     }, 500);
     return () => window.clearTimeout(timer);
   }, [assemblyAutoSaveKey, modal?.id, modal?.type]);
-  const remove = (type: "material" | "assembly" | "project", id: string) => {
+  const remove = (type: "material" | "assembly" | "project" | "executionProject", id: string) => {
     const requiredPermission =
       type === "material"
         ? WORKSPACE_PERMISSIONS.DELETE_MATERIAL
         : type === "assembly"
           ? WORKSPACE_PERMISSIONS.DELETE_ASSEMBLY
-          : WORKSPACE_PERMISSIONS.DELETE_PROJECT;
+          : type === "project"
+            ? WORKSPACE_PERMISSIONS.DELETE_PROJECT
+            : WORKSPACE_PERMISSIONS.DELETE_EXECUTION_PROJECT;
     if (!hasPermission(permissions, requiredPermission)) return;
     if (!confirm("Delete this item? This cannot be undone.")) return;
     if (type === "material") setMaterials((x) => x.filter((v) => v.id !== id));
@@ -1907,6 +1912,82 @@ function App() {
       setSelectedProjectId(next[0]?.id ?? "");
       if (!next.length) setScreen("projects");
     }
+    if (type === "executionProject") setExecutionProjects((items) => items.filter((item) => item.id !== id));
+  };
+  const copyExecutionProject = (id: string) => {
+    setExecutionProjects((items) => {
+      const source = items.find((item) => item.id === id);
+      if (!source) return items;
+      const idMap = new Map((source.files ?? []).map((file) => [file.id, makeId()]));
+      const files = (source.files ?? []).map((file) => ({ ...file, id: idMap.get(file.id)!, parentId: file.parentId ? idMap.get(file.parentId) ?? null : null }));
+      return [{ ...source, id: makeId(), name: `${source.name} copy`, createdAt: new Date().toISOString(), files }, ...items];
+    });
+  };
+  const removeExecutionProject = (id: string) => {
+    if (!confirm("Delete this project? This cannot be undone.")) return;
+    setExecutionProjects((items) => items.filter((item) => item.id !== id));
+  };
+  const openExecutionProject = (id: string) => {
+    setSelectedExecutionProjectId(id);
+    setExecutionFolderId(null);
+    setScreen("execution-project-detail");
+  };
+  const openExecutionWorkspace = (fileId: string) => {
+    setSelectedExecutionWorkspaceId(fileId);
+    setExecutionWorkspacePage("cutting-list");
+    setWorkspaceStockDatabaseId("prices");
+    setWorkspaceStockSearch("");
+    setWorkspaceStockAssemblyType("");
+    setWorkspaceOptimizationError("");
+    setScreen("execution-workspace");
+  };
+  const createExecutionProjectItem = (event: FormEvent) => {
+    event.preventDefault();
+    const name = newExecutionItemName.trim();
+    if (!name || !newExecutionItemType || !selectedExecutionProjectId) return;
+    const createdAt = new Date().toISOString();
+    const item: ExecutionProjectFile = {
+      id: makeId(),
+      name,
+      type: newExecutionItemType,
+      parentId: executionFolderId,
+      createdAt,
+      stockSnapshot: newExecutionItemType === "optimization-material-order"
+        ? {
+          materials: JSON.parse(JSON.stringify(materials)) as Material[],
+          assemblies: JSON.parse(JSON.stringify(assemblies)),
+          componentDatabases: JSON.parse(JSON.stringify(componentDatabases)),
+          companyDatabases: JSON.parse(JSON.stringify(companyDatabases)),
+          companyPriceTables: JSON.parse(JSON.stringify(companyPriceTables)),
+          movedOriginalPriceTableIds: JSON.parse(JSON.stringify(movedOriginalPriceTableIds)),
+          capturedAt: createdAt,
+        }
+        : undefined,
+      optimization: newExecutionItemType === "optimization-material-order"
+        ? { stockLength: 6000, kerf: 3, trim: 10, arrangements: 1000, cuts: [], recommendationMinimum: 4000, recommendationMaximum: 8000, recommendationIncrement: 100 }
+        : undefined,
+    };
+    setExecutionProjects((projects) => projects.map((project) => project.id === selectedExecutionProjectId ? { ...project, files: [...(project.files ?? []), item] } : project));
+    setNewExecutionItemType(null);
+    setNewExecutionItemName("");
+  };
+  const removeExecutionProjectItem = (id: string) => {
+    if (!confirm("Delete this item? Folders and everything inside them will be deleted.")) return;
+    setExecutionProjects((projects) => projects.map((project) => {
+      if (project.id !== selectedExecutionProjectId) return project;
+      const deletedIds = new Set([id]);
+      let foundChild = true;
+      while (foundChild) {
+        foundChild = false;
+        (project.files ?? []).forEach((item) => {
+          if (item.parentId && deletedIds.has(item.parentId) && !deletedIds.has(item.id)) {
+            deletedIds.add(item.id);
+            foundChild = true;
+          }
+        });
+      }
+      return { ...project, files: (project.files ?? []).filter((item) => !deletedIds.has(item.id)) };
+    }));
   };
   const cloneProject = (value: Project) => JSON.parse(JSON.stringify(value)) as Project;
   const updateProject = (change: (value: Project) => Project) => {
@@ -2966,7 +3047,17 @@ function App() {
     setMoveCompanyTable(null);
   };
 
-  const PriceBook = () => {
+  const PriceBook = ({ view = "prices" }: { view?: "prices" | "stock" }) => {
+    const isStockView = view === "stock";
+    const stockEntriesFor = (material: Material) => material.stockEntries?.length
+      ? material.stockEntries
+      : [{ id: "default", length: material.stockLength ?? 0, quantity: material.stockQuantity ?? 0 }];
+    const saveStockEntries = (materialId: string, entries: Material["stockEntries"]) => {
+      if (!entries?.length) return;
+      setMaterials((items) => items.map((material) => material.id === materialId
+        ? { ...material, stockEntries: entries, stockLength: entries[0].length, stockQuantity: entries[0].quantity }
+        : material));
+    };
     const companyDatabase = companyDatabases.find((database) => database.id === activeDatabaseId);
     const hasLegacyMovedOthers = companyPriceTables.some((table) => table.companyDatabaseId !== "prices" && table.name.trim().toLowerCase() === "others" && table.referencePrefix.trim().replace(/-+$/, "").toLowerCase() === "g");
     const assemblyUsageByMaterial = new Map<string, string[]>();
@@ -3041,24 +3132,31 @@ function App() {
         return next;
       });
       return (
-        <section className={`price-book-section ${section}`}>
+        <section className={`price-book-section ${section} ${isStockView ? "stock-book-section" : ""}`}>
           <header className="price-book-section-header">
             <div><h2>{title}</h2><p>{note}</p></div>
-                <div className="price-book-section-actions"><span>{rows.length}</span>{moveMaterialId && <button type="button" className="price-move-here" onClick={() => isSolealAccessoriesTable ? movePriceMaterialToSolealAccessories(moveMaterialId) : movePriceMaterialToTable(moveMaterialId, databaseId, insertedMaterialPriceTable, companyTableId)}>Move selected here</button>}<button type="button" className="price-move-here" onClick={() => openMoveCompanyTable({ tableId: companyTableId, sourceTableId: companyTableId ? undefined : tableId, sourceDatabaseId: companyTableId ? databaseId : "prices", name: title, referencePrefix: prefix.replace(/-+$/, ""), materialIds: movableRows.map((material) => material.id) })}>Move table</button><button type="button" className="price-table-toggle" onClick={toggle} aria-expanded={!collapsed}>{collapsed ? "Open" : "Close"}</button><button type="button" onClick={() => openComponent()}><Icon name="plus" size={13} /> Add component</button><label className="table-weight-rate"><span>$/kg</span><input aria-label={`Weight rate for ${title}`} type="number" min="0" step="any" value={weightRate} onChange={(event) => setTableWeightRate(tableId, Number(event.target.value))} /></label></div>
+                <div className="price-book-section-actions"><span>{rows.length}</span>{moveMaterialId && <button type="button" className="price-move-here" onClick={() => isSolealAccessoriesTable ? movePriceMaterialToSolealAccessories(moveMaterialId) : movePriceMaterialToTable(moveMaterialId, databaseId, insertedMaterialPriceTable, companyTableId)}>Move selected here</button>}<button type="button" className="price-move-here" onClick={() => openMoveCompanyTable({ tableId: companyTableId, sourceTableId: companyTableId ? undefined : tableId, sourceDatabaseId: companyTableId ? databaseId : "prices", name: title, referencePrefix: prefix.replace(/-+$/, ""), materialIds: movableRows.map((material) => material.id) })}>Move table</button><button type="button" className="price-table-toggle" onClick={toggle} aria-expanded={!collapsed}>{collapsed ? "Open" : "Close"}</button><button type="button" onClick={() => openComponent()}><Icon name="plus" size={13} /> Add component</button>{!isStockView && <label className="table-weight-rate"><span>$/kg</span><input aria-label={`Weight rate for ${title}`} type="number" min="0" step="any" value={weightRate} onChange={(event) => setTableWeightRate(tableId, Number(event.target.value))} /></label>}</div>
           </header>
-          {!collapsed && <div className={`material-list table-zoomable price-book-table ${priceDeleteMode ? "selection-active" : ""} ${priceSelectionMode ? "bulk-selection-active" : ""}`} style={tableStyle} onWheel={zoomTable} role="table" aria-label={`${title} prices`}>
-            <div className="material-list-header" role="row">{priceDeleteMode && <span><input type="checkbox" aria-label={`Select all ${title} materials`} checked={rows.length > 0 && rows.every((material) => selectedPriceMaterialIds.has(material.id))} onChange={(event) => setSelectedPriceMaterialIds((current) => { const next = new Set(current); rows.forEach((material) => event.target.checked ? next.add(material.id) : next.delete(material.id)); return next; })} /></span>}<span>Ref.</span><span>Material</span><span>Code</span><span>Used in assembly type</span><span>Unit</span><span className="weight-column-heading">kg / unit</span><span>Wastage</span><span>Rate / unit</span><span>Shipping</span><span /></div>
+          {!collapsed && <div className={`material-list table-zoomable price-book-table ${isStockView ? "stock-book-table" : ""} ${priceDeleteMode ? "selection-active" : ""} ${priceSelectionMode ? "bulk-selection-active" : ""}`} style={tableStyle} onWheel={zoomTable} role="table" aria-label={`${title} ${isStockView ? "stock" : "prices"}`}>
+            <div className="material-list-header" role="row">{priceDeleteMode && <span><input type="checkbox" aria-label={`Select all ${title} materials`} checked={rows.length > 0 && rows.every((material) => selectedPriceMaterialIds.has(material.id))} onChange={(event) => setSelectedPriceMaterialIds((current) => { const next = new Set(current); rows.forEach((material) => event.target.checked ? next.add(material.id) : next.delete(material.id)); return next; })} /></span>}<span>Ref.</span><span>Material</span><span>Code</span><span>Used in assembly type</span><span>Unit</span>{isStockView ? <><span>Mass</span><span>Stock length</span><span>Qty</span></> : <><span className="weight-column-heading">kg / unit</span><span>Wastage</span><span>Rate / unit</span><span>Shipping</span><span /></>}</div>
             {rows.map((material, index) => {
               const usage = assemblyUsage(material.id);
               const usageText = usage.join(", ");
-              return <div className={`material-list-row ${rateMethodMenu?.materialId === material.id ? "rate-method-open" : ""} ${(priceSelectionMode || priceDeleteMode) && selectedPriceMaterialIds.has(material.id) ? "price-row-selected" : ""}`} role="row" key={material.id} data-price-material-id={material.id} onPointerDown={(event) => beginRowDragSelection(event, material.id)} onPointerEnter={() => extendRowDragSelection(material.id)} onPointerUp={() => { setPriceSelectionPending(null); setPriceSelectionDrag(null); }}>
+              return <div className={`material-list-row ${!isStockView && rateMethodMenu?.materialId === material.id ? "rate-method-open" : ""} ${(priceSelectionMode || priceDeleteMode) && selectedPriceMaterialIds.has(material.id) ? "price-row-selected" : ""}`} role="row" key={material.id} data-price-material-id={material.id} onPointerDown={(event) => beginRowDragSelection(event, material.id)} onPointerEnter={() => extendRowDragSelection(material.id)} onPointerUp={() => { setPriceSelectionPending(null); setPriceSelectionDrag(null); }}>
                 {priceDeleteMode && <span><input type="checkbox" aria-label={`Select ${material.name}`} checked={selectedPriceMaterialIds.has(material.id)} onChange={(event) => togglePriceMaterialSelection(material.id, event.target.checked)} /></span>}
                 <span className="price-reference">{prefix}{startAt + index}</span>
                 <span className={`material-list-name ${moveMaterialId && moveMaterialId !== material.id ? "move-target" : ""}`}><span className="price-photo-cell"><button type="button" className="price-photo-button" onClick={() => moveMaterialId ? movePriceMaterialAfter(moveMaterialId, material.id) : setPhotoMenuMaterialId((current) => current === material.id ? null : material.id)} aria-label={`Actions for ${material.name}`}><Sketch path={material.sketch} label={material.name} /></button>{photoMenuMaterialId === material.id && <span className="price-photo-menu"><button type="button" onClick={() => { openComponent(material.id); setPhotoMenuMaterialId(null); }}>Insert</button><button type="button" onClick={() => { setMoveMaterialId(material.id); setPhotoMenuMaterialId(null); }}>Move</button><button type="button" onClick={() => { setPhotoMenuMaterialId(null); deletePriceMaterial(material); }}>Delete</button></span>}</span><b>{material.name}</b>{material.manufacturer && <small>{material.manufacturer}</small>}</span>
-                <span>{material.code}</span><span className="assembly-usage" title={usageText || "Not used in an assembly type"} tabIndex={0} aria-label={usageText ? `Used in assembly types: ${usageText}` : "Not used in an assembly type"}>{usageText || "Not used"}</span><span>{material.unit}</span><span className="weight-cell"><input key={material.weight} className="weight-input" aria-label={`Kilograms per unit for ${material.name}`} type="number" min="0" step="any" defaultValue={material.weight} onBlur={(event) => { const weight = Math.max(0, Number(event.target.value) || 0); const targets = selectedTargets(material.id); recordPriceChange(); setMaterials((items) => items.map((value) => !targets.has(value.id) ? value : { ...value, weight, cost: value.rateMethod === "weight" ? weight * (weightRates[value.weightRateTableId ?? tableId] ?? 0) : value.cost })); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} /></span>
+                <span>{material.code}</span><span className="assembly-usage" title={usageText || "Not used in an assembly type"} tabIndex={0} aria-label={usageText ? `Used in assembly types: ${usageText}` : "Not used in an assembly type"}>{usageText || "Not used"}</span><span>{material.unit}</span>{isStockView ? <><span className="stock-mass-cell"><input className="stock-input" aria-label={`Mass for ${material.name}`} type="number" min="0" step="any" value={material.weight || ""} onChange={(event) => setMaterials((items) => items.map((item) => item.id === material.id ? { ...item, weight: Math.max(0, Number(event.target.value) || 0) } : item))} /><em>kg</em></span>{(() => {
+                  const stockEntries = stockEntriesFor(material);
+                  const updateEntry = (entryId: string, field: "length" | "quantity", value: string) => {
+                    const parsed = Math.max(0, Number(value) || 0);
+                    saveStockEntries(material.id, stockEntries.map((entry) => entry.id === entryId ? { ...entry, [field]: parsed } : entry));
+                  };
+                  return <><span className="stock-cell stock-entry-list">{stockEntries.map((entry) => <span className="stock-entry-row" key={entry.id}><input className="stock-input" aria-label={`Stock length for ${material.name}`} type="number" min="0" step="any" value={entry.length || ""} onChange={(event) => updateEntry(entry.id, "length", event.target.value)} onContextMenu={(event) => { event.preventDefault(); setStockLengthMenu({ materialId: material.id, entryId: entry.id }); }} /><em>m</em>{stockLengthMenu?.materialId === material.id && stockLengthMenu.entryId === entry.id && <span className="stock-length-menu" role="menu"><button type="button" onClick={() => { saveStockEntries(material.id, [...stockEntries, { id: makeId(), length: 0, quantity: 0 }]); setStockLengthMenu(null); }}>Add another stock length</button>{stockEntries.length > 1 && <button type="button" className="danger" onClick={() => { saveStockEntries(material.id, stockEntries.filter((value) => value.id !== entry.id)); setStockLengthMenu(null); }}>Delete stock length</button>}</span>}</span>)}</span><span className="stock-cell stock-entry-list">{stockEntries.map((entry) => <span className="stock-entry-row" key={entry.id}><input className="stock-input" aria-label={`Stock quantity for ${material.name}`} type="number" min="0" step="1" value={entry.quantity || ""} onChange={(event) => updateEntry(entry.id, "quantity", event.target.value)} /></span>)}</span></>;
+                })()}</> : <><span className="weight-cell"><input key={material.weight} className="weight-input" aria-label={`Kilograms per unit for ${material.name}`} type="number" min="0" step="any" defaultValue={material.weight} onBlur={(event) => { const weight = Math.max(0, Number(event.target.value) || 0); const targets = selectedTargets(material.id); recordPriceChange(); setMaterials((items) => items.map((value) => !targets.has(value.id) ? value : { ...value, weight, cost: value.rateMethod === "weight" ? weight * (weightRates[value.weightRateTableId ?? tableId] ?? 0) : value.cost })); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} /></span>
                 <span className="wastage-cell"><input key={material.wastage ?? 0} className="wastage-input" aria-label={`Wastage percentage for ${material.name}`} type="number" min="0" step="any" defaultValue={material.wastage ?? 0} onBlur={(event) => { const wastage = Math.max(0, Number(event.target.value) || 0); const targets = selectedTargets(material.id); recordPriceChange(); setMaterials((items) => items.map((value) => targets.has(value.id) ? { ...value, wastage } : value)); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} /> <em>%</em></span>
                 <span className={`price-cell rate-cell ${material.rateMethod === "weight" ? "weight-based" : ""} ${rateMethodMenu?.materialId === material.id ? "rate-method-open" : ""}`} onContextMenu={(event) => { event.preventDefault(); setRateMethodMenu({ materialId: material.id, tableId }); }}><input key={`${material.rateMethod ?? "manual"}-${material.cost}`} className="price-book-input" aria-label={`Rate per unit for ${material.name}`} title="Right-click to choose Manual or Weight based" type="number" min="0" step="any" defaultValue={material.cost} disabled={material.rateMethod === "weight"} onBlur={(event) => { const cost = Math.max(0, Number(event.target.value) || 0); const targets = selectedTargets(material.id); recordPriceChange(); setMaterials((items) => items.map((value) => targets.has(value.id) ? { ...value, cost, manualRate: cost, rateMethod: "manual", weightRateTableId: undefined } : value)); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} /> <em>$</em>{rateMethodMenu?.materialId === material.id && <div className="rate-method-menu" role="menu"><button type="button" onClick={() => setMaterialRateMethod(material, tableId, "manual")}>Manual</button><button type="button" onClick={() => setMaterialRateMethod(material, tableId, "weight")}>Weight based</button></div>}</span>
-                <span className="shipping-cell"><select className="shipping-type-select" value={material.shippingTypeId ?? ""} onChange={(event) => { const shippingTypeId = event.target.value || undefined; const shippingPercentage = shippingRateForType(shippingTypeId); const targets = selectedTargets(material.id); recordPriceChange(); setMaterials((items) => items.map((value) => targets.has(value.id) ? { ...value, shippingTypeId, shippingPercentage } : value)); }} aria-label={`Shipping type for ${material.name}`}><option value="">No shipping</option>{shippingTypes.map((type) => <option key={type.id} value={type.id}>{type.name} ({number(shippingRateForType(type.id))}%)</option>)}</select></span><span className="material-list-actions"><button onClick={() => openModal("material", material.id)} aria-label={`Edit ${material.name}`}><Icon name="edit" size={13} /></button></span>
+                <span className="shipping-cell"><select className="shipping-type-select" value={material.shippingTypeId ?? ""} onChange={(event) => { const shippingTypeId = event.target.value || undefined; const shippingPercentage = shippingRateForType(shippingTypeId); const targets = selectedTargets(material.id); recordPriceChange(); setMaterials((items) => items.map((value) => targets.has(value.id) ? { ...value, shippingTypeId, shippingPercentage } : value)); }} aria-label={`Shipping type for ${material.name}`}><option value="">No shipping</option>{shippingTypes.map((type) => <option key={type.id} value={type.id}>{type.name} ({number(shippingRateForType(type.id))}%)</option>)}</select></span><span className="material-list-actions"><button onClick={() => openModal("material", material.id)} aria-label={`Edit ${material.name}`}><Icon name="edit" size={13} /></button></span></>}
               </div>;
             })}
             {!rows.length && <p className="price-book-empty">No materials in this price group yet.</p>}
@@ -3066,9 +3164,9 @@ function App() {
         </section>
       );
     };
-    return <>
+    return <div className={isStockView ? "stock-book" : undefined}>
       <section className="page-heading">
-        <div><h1>{companyDatabase ? `${companyDatabase.name} Database` : "Soleal Database"}</h1><p className="intro">{companyDatabase ? `Organize ${companyDatabase.name} materials within the shared estimating database. These tables use the same estimating controls as Soleal.` : "Manage Soleal materials, profiles, accessories, and their central pricing for estimating."}</p></div>
+        <div><h1>{isStockView ? "Stock" : companyDatabase ? `${companyDatabase.name} Database` : "Soleal Database"}</h1><p className="intro">{isStockView ? "The same material tables as the estimation database, showing stock length and available quantity." : companyDatabase ? `Organize ${companyDatabase.name} materials within the shared estimating database. These tables use the same estimating controls as Soleal.` : "Manage Soleal materials, profiles, accessories, and their central pricing for estimating."}</p></div>
         <button type="button" className="primary-button" onClick={() => openNewCompanyTable(companyDatabase ?? { id: "prices", name: "Soleal" })}><Icon name="plus" /> Add table</button>
       </section>
       <section className="library-panel price-book-panel">
@@ -3087,7 +3185,7 @@ function App() {
         {!movedOriginalPriceTableIds.includes("soleal-accessories") && <PriceTable title="Accessories" note="Accessories for all Soleal doors and windows systems." rows={[TECHNAL_GYN_DATABASE, TECHNAL_GY_DATABASE, TECHNAL_FYN_DATABASE, TECHNAL_FY_DATABASE].flatMap((databaseId) => groupedRowsFor(databaseId, "accessories"))} section="price-technal" databaseId="soleal-accessories" prefix="A-" collapseId="soleal-accessories" />}
         {!movedOriginalPriceTableIds.includes("soleal-joints") && <PriceTable title="Joints" note="Joints for all Soleal doors and windows systems." rows={rowsFor(SOLEAL_JOINTS_DATABASE)} section="price-technal" databaseId={SOLEAL_JOINTS_DATABASE} prefix="J-" collapseId="soleal-joints" />}</>}
       </section>
-    </>;
+    </div>;
   };
 
   // CostingFinancials relocated to modules/costing/ui/CostingFinancials.tsx (Phase 10 extraction).
@@ -3132,64 +3230,39 @@ function App() {
   const AmaHome = () => (
     <main className="ama-home" aria-labelledby="ama-home-title">
       <section className="ama-home-content">
-        <div className="ama-wordmark" aria-label="AMA">AMA</div>
-        <p className="eyebrow">Company services</p>
-        <h1 id="ama-home-title">Welcome to AMA</h1>
-        <p className="ama-home-intro">Choose a service to begin.</p>
+        <div className="ama-wordmark">
+          <img className="ama-company-logo" src="/brand/atelier-moderne-logo.png" alt="L’Atelier Moderne de l’Aluminium" />
+        </div>
+        <p className="eyebrow">Internal operations</p>
+        <h1 id="ama-home-title">AMA Team Workspace</h1>
+        <p className="ama-home-intro">Choose a workspace for your team.</p>
         <div className="ama-service-list">
           <button className="ama-service-card" type="button" onClick={() => setScreen("database")}>
             <span className="ama-service-icon"><Icon name="box" size={34} /></span>
-            <span><b>Estimation Service</b><small>Tender Helping System</small></span>
+            <span><b>Estimation Service</b><small>Prepare estimates and quotations for clients</small></span>
             <Icon name="arrow" size={20} />
           </button>
-          <button className="ama-service-card" type="button" onClick={() => setScreen("stock")}>
+          <button className="ama-service-card" type="button" onClick={() => { setSidebarCollapsed(false); setActiveDatabaseId("prices"); setScreen("stock"); }}>
             <span className="ama-service-icon ama-stock-order-icon"><Icon name="warehouse" size={26} /><Icon name="order" size={20} /></span>
-            <span><b>Stock &amp; Material Orders</b><small>Stock control and material ordering</small></span>
+            <span><b>AMA Stock</b><small>Manage internal stock</small></span>
+            <Icon name="arrow" size={20} />
+          </button>
+          <button
+            className="ama-service-card"
+            type="button"
+            onClick={() => {
+              setSidebarCollapsed(false);
+              setScreen("execution-projects");
+            }}
+          >
+            <span className="ama-service-icon"><Icon name="folder" size={30} /></span>
+            <span><b>Projects Under Execution</b><small>Create, manage, and track company projects</small></span>
             <Icon name="arrow" size={20} />
           </button>
         </div>
       </section>
     </main>
   );
-
-  const StockWorkspace = () => {
-    const isAccessories = stockSection === "accessories";
-    const rows = stockCatalogue.filter((item) => {
-      const inSection = item.category === (isAccessories ? "accessories" : "profiles");
-      const query = stockSearch.trim().toLowerCase();
-      return inSection && (!query || `${item.name} ${item.reference}`.toLowerCase().includes(query));
-    });
-    const title = isAccessories ? "Accessories" : "Aluminium Profiles";
-    return (
-      <main className="stock-app" aria-labelledby="stock-title">
-        <aside className="stock-sidebar">
-          <button className="stock-brand" type="button" onClick={() => setScreen("home")} aria-label="Return to AMA services">AMA</button>
-          <p>Stock</p>
-          <nav aria-label="Stock sections">
-            <button className={isAccessories ? "active" : ""} onClick={() => setStockSection("accessories")}><Icon name="order" /><span>Accessories</span></button>
-            <button className={!isAccessories ? "active" : ""} onClick={() => setStockSection("profiles")}><Icon name="warehouse" /><span>Aluminium profiles</span></button>
-          </nav>
-        </aside>
-        <section className="stock-content">
-          <header className="stock-topbar"><div><span>AMA</span><b>Stock &amp; Material Orders</b></div><button type="button" onClick={() => setScreen("home")}>All services</button></header>
-          <div className="page-heading stock-heading"><div><p className="eyebrow">Stock catalogue</p><h1 id="stock-title">{title}</h1><p className="intro">Browse stock materials before building stock quantities and material orders.</p></div></div>
-          <section className="stock-panel">
-            <div className="toolbar"><label className="search-field"><Icon name="search" size={17} /><span className="sr-only">Search {title}</span><input value={stockSearch} onChange={(event) => setStockSearch(event.target.value)} placeholder={`Search ${title.toLowerCase()}`} /></label><span className="item-count">{rows.length} items</span></div>
-            <div className="stock-list" role="table" aria-label={`${title} stock catalogue`}>
-              <div className="stock-list-header" role="row"><span>Photo</span><span>Profile</span><span>Reference</span><span>Mass / lm</span></div>
-              {rows.map((item) => <div className="stock-list-row" role="row" key={item.id}>
-                <span className="stock-photo"><Sketch path={item.sketch} label={item.name} /></span>
-                <span><b>{item.name}</b><small>{isAccessories ? "Accessory" : "Aluminium profile"}</small></span>
-                <span className="stock-reference">{item.reference}</span>
-                <span>{item.massPerLm > 0 ? `${number(item.massPerLm)} kg/lm` : "—"}</span>
-              </div>)}
-              {!rows.length && <p className="stock-empty">No {title.toLowerCase()} are available in the current catalogue.</p>}
-            </div>
-          </section>
-        </section>
-      </main>
-    );
-  };
 
   const Library = ({ type }: { type: "material" | "assembly" }) => {
     const isPriceBook = type === "material" && activeDatabaseId === "prices";
@@ -3342,11 +3415,11 @@ function App() {
     <>
       <section className="page-heading">
         <div>
-          <p className="eyebrow">Work area</p>
-          <h1>Projects</h1>
+          <p className="eyebrow">Estimation workspace</p>
+          <h1>Estimation Projects</h1>
           <p className="intro">
-            Create a project, then place assemblies and sketch directly on its
-            layout canvas.
+            Create a new project, manage its details, and open its layout
+            canvas to add assemblies and drawings.
           </p>
         </div>
         <PermissionGate permission={WORKSPACE_PERMISSIONS.CREATE_PROJECT}>
@@ -3399,6 +3472,393 @@ function App() {
       </section>
     </>
   );
+  const ExecutionProjects = () => (
+    <>
+      <section className="page-heading">
+        <div>
+          <p className="eyebrow">Operational workspace</p>
+          <h1>Projects Under Execution</h1>
+          <p className="intro">This workspace is separate from tender estimates, assemblies, and drawings.</p>
+        </div>
+        <button className="primary-button" onClick={() => openModal("executionProject")}>
+          <Icon name="plus" /> New project
+        </button>
+      </section>
+      <section className="project-list">
+        {executionProjects.length ? executionProjects.map((project) => (
+          <article className="project-card" key={project.id}>
+            <div>
+              <p className="eyebrow">{[project.client, project.company, project.location].filter(Boolean).join(" · ") || "No project details"}</p>
+              <h2>{project.name}</h2>
+              <p>Created {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(project.createdAt))}</p>
+            </div>
+            <div className="project-actions">
+              <button className="primary-button" onClick={() => openExecutionProject(project.id)}>
+                Open project <Icon name="arrow" size={16} />
+              </button>
+              <button className="secondary-button" onClick={() => copyExecutionProject(project.id)}>
+                <Icon name="copy" size={16} /> Copy project
+              </button>
+              <button className="icon-button danger-icon" onClick={() => removeExecutionProject(project.id)} aria-label={`Delete ${project.name}`}>
+                <Icon name="trash" />
+              </button>
+            </div>
+          </article>
+        )) : <p className="price-book-empty">No projects under execution yet. Create one to start tracking it here.</p>}
+      </section>
+    </>
+  );
+  const ExecutionProjectFiles = () => {
+    const project = executionProjects.find((item) => item.id === selectedExecutionProjectId);
+    if (!project) return <ExecutionProjects />;
+    const files = project.files ?? [];
+    // Retain legacy uploads in saved data without displaying them in the tools workspace.
+    const currentItems = files.filter((item) => item.type !== "excel" && item.parentId === executionFolderId);
+    const itemTypeLabel = (type: ExecutionProjectFile["type"]) => type === "folder" ? "Folder" : type === "optimization-material-order" ? "Optimization & material order" : type === "optimization" ? "Optimization" : type === "material-order" ? "Material order" : "Excel file";
+    const folderPath: ExecutionProjectFile[] = [];
+    let folder = executionFolderId ? files.find((item) => item.id === executionFolderId && item.type === "folder") : undefined;
+    const visited = new Set<string>();
+    while (folder && !visited.has(folder.id)) {
+      visited.add(folder.id);
+      folderPath.unshift(folder);
+      const parentId = folder.parentId;
+      folder = parentId ? files.find((item) => item.id === parentId && item.type === "folder") : undefined;
+    }
+    return (
+      <>
+        <section className="page-heading execution-file-heading">
+          <div>
+            <button className="back-button" type="button" onClick={() => { setExecutionFolderId(null); setScreen("execution-projects"); }}>All projects</button>
+            <p className="eyebrow">Project files</p>
+            <h1>{project.name}</h1>
+            <p className="intro">{[project.client, project.company, project.location].filter(Boolean).join(" · ")}</p>
+          </div>
+          <div className="execution-new-menu">
+            <button className="primary-button" type="button" onClick={() => setExecutionNewMenuOpen((open) => !open)} aria-expanded={executionNewMenuOpen}>
+              <Icon name="plus" size={16} /> New
+            </button>
+            {executionNewMenuOpen && <div className="execution-new-options" role="menu">
+              <button type="button" onClick={() => { setNewExecutionItemName("New folder"); setNewExecutionItemType("folder"); setExecutionNewMenuOpen(false); }}><Icon name="folder" size={17} /><span><b>Folder</b><small>Organize project files</small></span></button>
+              <button type="button" onClick={() => { setNewExecutionItemName("New optimization and material order"); setNewExecutionItemType("optimization-material-order"); setExecutionNewMenuOpen(false); }}><Icon name="box" size={17} /><span><b>Optimization &amp; material order</b><small>Create one combined project file</small></span></button>
+            </div>}
+          </div>
+        </section>
+        <section className="file-explorer-panel">
+          <nav className="file-breadcrumbs" aria-label="Folder path">
+            <button type="button" onClick={() => setExecutionFolderId(null)}>Project files</button>
+            {folderPath.map((item) => <button type="button" key={item.id} onClick={() => setExecutionFolderId(item.id)}><span>/</span>{item.name}</button>)}
+          </nav>
+          <div className="file-explorer-list" role="table" aria-label={`${project.name} files`}>
+            <div className="file-explorer-header" role="row"><span>Name</span><span>Type</span><span>Created</span><span>Actions</span></div>
+            {currentItems.map((item) => <div className="file-explorer-row" role="row" key={item.id}>
+              {item.type === "folder" ? <button className="file-name-button" type="button" onDoubleClick={() => setExecutionFolderId(item.id)} onClick={() => setExecutionFolderId(item.id)}><Icon name="folder" size={20} /><b>{item.name}</b></button> : item.type === "optimization-material-order" ? <button className="file-name-button" type="button" onClick={() => openExecutionWorkspace(item.id)}><Icon name="box" size={20} /><b>{item.name}</b></button> : <span className="file-name"><Icon name="box" size={20} /><b>{item.name}</b></span>}
+              <span>{itemTypeLabel(item.type)}</span>
+              <span>{new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(item.createdAt))}</span>
+              <button className="icon-button danger-icon" type="button" onClick={() => removeExecutionProjectItem(item.id)} aria-label={`Delete ${item.name}`}><Icon name="trash" /></button>
+            </div>)}
+            {!currentItems.length && <div className="file-explorer-empty">This folder is empty. Use New to create a folder or an optimization and material-order file.</div>}
+          </div>
+        </section>
+      </>
+    );
+  };
+  const ExecutionProjectsApp = () => (
+    <div className="execution-projects-app">
+      <aside className="execution-projects-sidebar">
+        <button className="execution-projects-brand" type="button" onClick={() => setScreen("home")} aria-label="Return to AMA services">
+          <Icon name="folder" size={22} />
+          <span>AMA<br />Projects</span>
+        </button>
+        <nav aria-label="Projects navigation">
+          <button className="active" type="button" onClick={() => { setExecutionFolderId(null); setScreen("execution-projects"); }}><Icon name="folder" /> <span>Projects</span></button>
+        </nav>
+      </aside>
+      <div className="execution-projects-content">
+        <header className="execution-projects-topbar">
+          <span>{screen === "execution-project-detail" ? executionProjects.find((project) => project.id === selectedExecutionProjectId)?.name ?? "Projects" : "Projects"}</span>
+          <ProfileMenu />
+        </header>
+        <main>{screen === "execution-project-detail" ? <ExecutionProjectFiles /> : <ExecutionProjects />}</main>
+      </div>
+      {modal?.type === "executionProject" && (
+        <div className="dialog-backdrop" onMouseDown={closeModal}>
+          <section className="material-dialog" role="dialog" aria-modal="true" aria-labelledby="execution-project-dialog-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="dialog-header">
+              <div>
+                <p className="eyebrow">New project</p>
+                <h2 id="execution-project-dialog-title">Add project</h2>
+              </div>
+              <button className="icon-button" type="button" onClick={closeModal} aria-label="Close"><Icon name="close" /></button>
+            </div>
+            <form onSubmit={save}>
+              <div className="dialog-form">
+                <label>Project name <span>*</span><input autoFocus required value={formName} onChange={(event) => setFormName(event.target.value)} placeholder="Project 1" /></label>
+                <label>Client name <span>*</span><input required value={formClient} onChange={(event) => setFormClient(event.target.value)} placeholder="Client" /></label>
+                <label>Company name <small>(optional)</small><input value={formCompany} onChange={(event) => setFormCompany(event.target.value)} placeholder="Company" /></label>
+                <label>Location <span>*</span><input required value={formLocation} onChange={(event) => setFormLocation(event.target.value)} placeholder="Lebanon" /></label>
+              </div>
+              <div className="dialog-footer">
+                <button className="secondary-button" type="button" onClick={closeModal}>Cancel</button>
+                <button className="primary-button" type="submit">Create project</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+      {newExecutionItemType && (
+        <div className="dialog-backdrop" onMouseDown={() => setNewExecutionItemType(null)}>
+          <section className="material-dialog compact-dialog" role="dialog" aria-modal="true" aria-labelledby="new-project-item-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="dialog-header"><div><p className="eyebrow">Project files</p><h2 id="new-project-item-title">New {newExecutionItemType === "folder" ? "folder" : "optimization and material-order file"}</h2></div><button className="icon-button" type="button" onClick={() => setNewExecutionItemType(null)} aria-label="Close"><Icon name="close" /></button></div>
+            <form onSubmit={createExecutionProjectItem}>
+              <div className="dialog-form"><label>{newExecutionItemType === "folder" ? "Folder" : "Optimization and material-order file"} name <span>*</span><input autoFocus required value={newExecutionItemName} onChange={(event) => setNewExecutionItemName(event.target.value)} onFocus={(event) => event.currentTarget.select()} /></label></div>
+              <div className="dialog-footer"><button className="secondary-button" type="button" onClick={() => setNewExecutionItemType(null)}>Cancel</button><button className="primary-button" type="submit">Create</button></div>
+            </form>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+  const ExecutionWorkspaceApp = () => {
+    const project = executionProjects.find((item) => item.id === selectedExecutionProjectId);
+    const workspace = project?.files.find((item) => item.id === selectedExecutionWorkspaceId && item.type === "optimization-material-order");
+    if (!project || !workspace) return <ExecutionProjectsApp />;
+    const pages: { id: ExecutionWorkspacePage; label: string; description: string }[] = [
+      { id: "cutting-list", label: "Cutting list", description: "Prepare and review the cutting list for this project." },
+      { id: "optimization", label: "Optimization", description: "Plan the best use of material lengths and reduce waste." },
+      { id: "material-order", label: "Material order", description: "Prepare the materials required for this project." },
+      { id: "database", label: "Database", description: "Manage the materials and reference data used by this workspace." },
+    ];
+    const currentPage = pages.find((page) => page.id === executionWorkspacePage) ?? pages[0];
+    const stockSnapshot = workspace.stockSnapshot;
+    // This page never reads or writes the live Stock page.  It uses only the
+    // copy saved inside this workspace when the file was created.
+    const snapshotMaterials = stockSnapshot?.materials ?? [];
+    const snapshotAssemblies = stockSnapshot?.assemblies ?? [];
+    const snapshotCompanyDatabases = stockSnapshot?.companyDatabases ?? [];
+    const snapshotCompanyPriceTables = stockSnapshot?.companyPriceTables ?? [];
+    const snapshotMovedOriginalPriceTableIds = stockSnapshot?.movedOriginalPriceTableIds ?? [];
+    const stockTabs = [{ id: "prices", label: "Soleal Database" }, ...snapshotCompanyDatabases.map((database) => ({ id: database.id, label: `${database.name} Database` }))];
+    const activeWorkspaceStockDatabase = stockTabs.some((tab) => tab.id === workspaceStockDatabaseId) ? workspaceStockDatabaseId : "prices";
+    const assemblyUsageByMaterial = new Map<string, string[]>();
+    snapshotAssemblies.forEach((assembly) => assembly.parts.forEach((part) => {
+      const usage = assemblyUsageByMaterial.get(part.materialId) ?? [];
+      if (!usage.includes(assembly.name)) usage.push(assembly.name);
+      assemblyUsageByMaterial.set(part.materialId, usage);
+    }));
+    const snapshotAssemblyTypeNames = [...new Set(snapshotAssemblies.filter((assembly) => assembly.parts.length > 0).map((assembly) => assembly.name))].sort((a, b) => a.localeCompare(b));
+    const stockSearch = workspaceStockSearch.trim().toLocaleLowerCase();
+    const snapshotRowsFor = (databaseId: string) => snapshotMaterials.filter((material) => material.databaseId === databaseId
+      && (!workspaceStockAssemblyType || (assemblyUsageByMaterial.get(material.id) ?? []).includes(workspaceStockAssemblyType))
+      && (!stockSearch || [material.name, material.code, material.category, material.manufacturer].filter(Boolean).join(" ").toLocaleLowerCase().includes(stockSearch)));
+    const snapshotGeneralRowsFor = (group: "others" | "profiles" | "accessories") => snapshotRowsFor("markups").filter((material) => group === "others" ? !material.priceTable || material.priceTable === "general" : material.priceTable === group);
+    const snapshotGroupedRowsFor = (databaseId: string, group: "profiles" | "accessories", legacyProfileCount = 7) => {
+      const allRows = snapshotMaterials.filter((material) => material.databaseId === databaseId);
+      const legacyProfileIds = new Set(allRows.filter((material) => !material.priceTable).slice(0, legacyProfileCount).map((material) => material.id));
+      return snapshotRowsFor(databaseId).filter((material) => material.priceTable === group || (!material.priceTable && (group === "profiles" ? legacyProfileIds.has(material.id) : !legacyProfileIds.has(material.id))));
+    };
+    const snapshotHasLegacyMovedOthers = snapshotCompanyPriceTables.some((table) => table.companyDatabaseId !== "prices" && table.name.trim().toLowerCase() === "others" && table.referencePrefix.trim().replace(/-+$/, "").toLowerCase() === "g");
+    const stockTables = activeWorkspaceStockDatabase === "prices"
+      ? [
+        ...snapshotCompanyPriceTables.filter((table) => table.companyDatabaseId === "prices").map((table) => ({ id: `company-${table.id}`, title: table.name, note: "Materials in this shared Soleal database table.", rows: snapshotRowsFor("prices").filter((material) => material.companyTableId === table.id), prefix: `${table.referencePrefix}-`, section: "price-technal" })),
+        ...(!snapshotMovedOriginalPriceTableIds.includes("general-others") && !snapshotHasLegacyMovedOthers ? [{ id: "general-others", title: "Others", note: "Miscellaneous general items.", rows: snapshotGeneralRowsFor("others"), prefix: "G-", section: "price-general" }] : []),
+        ...(!snapshotMovedOriginalPriceTableIds.includes("general-profiles") ? [{ id: "general-profiles", title: "General ALU profiles", note: "General aluminium profiles.", rows: snapshotGeneralRowsFor("profiles"), prefix: "GP-", section: "price-general" }] : []),
+        ...(!snapshotMovedOriginalPriceTableIds.includes("general-accessories") ? [{ id: "general-accessories", title: "General ALU accessories", note: "General aluminium accessories.", rows: snapshotGeneralRowsFor("accessories"), prefix: "GA-", section: "price-general" }] : []),
+        ...(!snapshotMovedOriginalPriceTableIds.includes("gyn-profiles") ? [{ id: "gyn-profiles", title: "GYn · ALU profiles", note: "Soleal GYn aluminium profiles.", rows: snapshotGroupedRowsFor(TECHNAL_GYN_DATABASE, "profiles"), prefix: "GYn-", section: "price-technal" }] : []),
+        ...(!snapshotMovedOriginalPriceTableIds.includes("gy-profiles") ? [{ id: "gy-profiles", title: "GY · ALU profiles", note: "Soleal GY aluminium profiles.", rows: snapshotGroupedRowsFor(TECHNAL_GY_DATABASE, "profiles"), prefix: "GY-", section: "price-technal" }] : []),
+        ...(!snapshotMovedOriginalPriceTableIds.includes("fyn-profiles") ? [{ id: "fyn-profiles", title: "FYn · ALU profiles", note: "Soleal FYn aluminium profiles.", rows: snapshotGroupedRowsFor(TECHNAL_FYN_DATABASE, "profiles"), prefix: "FYn-", section: "price-technal" }] : []),
+        ...(!snapshotMovedOriginalPriceTableIds.includes("fy-profiles") ? [{ id: "fy-profiles", title: "FY · ALU profiles", note: "Soleal FY aluminium profiles.", rows: snapshotGroupedRowsFor(TECHNAL_FY_DATABASE, "profiles"), prefix: "FY-", section: "price-technal" }] : []),
+        ...(!snapshotMovedOriginalPriceTableIds.includes("soleal-accessories") ? [{ id: "soleal-accessories", title: "Accessories", note: "Accessories for all Soleal doors and windows systems.", rows: [TECHNAL_GYN_DATABASE, TECHNAL_GY_DATABASE, TECHNAL_FYN_DATABASE, TECHNAL_FY_DATABASE].flatMap((databaseId) => snapshotGroupedRowsFor(databaseId, "accessories")), prefix: "A-", section: "price-technal" }] : []),
+        ...(!snapshotMovedOriginalPriceTableIds.includes("soleal-joints") ? [{ id: "soleal-joints", title: "Joints", note: "Joints for all Soleal doors and windows systems.", rows: snapshotRowsFor(SOLEAL_JOINTS_DATABASE), prefix: "J-", section: "price-technal" }] : []),
+      ]
+      : snapshotCompanyPriceTables.filter((table) => table.companyDatabaseId === activeWorkspaceStockDatabase).map((table) => ({ id: table.id, title: table.name, note: `Materials in this ${snapshotCompanyDatabases.find((database) => database.id === activeWorkspaceStockDatabase)?.name ?? "company"} table.`, rows: snapshotRowsFor(activeWorkspaceStockDatabase).filter((material) => material.companyTableId === table.id), prefix: `${table.referencePrefix}-`, section: "price-technal" }));
+    const stockMaterialCount = new Set(stockTables.flatMap((table) => table.rows.map((material) => material.id))).size;
+    const stockEntriesFor = (material: Material) => material.stockEntries?.length
+      ? material.stockEntries
+      : [{ id: "default", length: material.stockLength ?? 0, quantity: material.stockQuantity ?? 0 }];
+    const saveWorkspaceStockEntries = (materialId: string, entries: { id: string; length: number; quantity: number }[]) => {
+      if (!entries.length) return;
+      setExecutionProjects((projects) => projects.map((item) => item.id !== project.id ? item : {
+        ...item,
+        files: item.files.map((file) => file.id !== workspace.id || !file.stockSnapshot ? file : {
+          ...file,
+          stockSnapshot: {
+            ...file.stockSnapshot,
+            materials: file.stockSnapshot.materials.map((material) => material.id !== materialId ? material : {
+              ...material,
+              stockEntries: entries,
+              stockLength: entries[0].length,
+              stockQuantity: entries[0].quantity,
+            }),
+          },
+        }),
+      }));
+    };
+    const saveWorkspaceMaterialMass = (materialId: string, value: string) => {
+      const weight = Math.max(0, Number(value) || 0);
+      setExecutionProjects((projects) => projects.map((item) => item.id !== project.id ? item : {
+        ...item,
+        files: item.files.map((file) => file.id !== workspace.id || !file.stockSnapshot ? file : {
+          ...file,
+          stockSnapshot: {
+            ...file.stockSnapshot,
+            materials: file.stockSnapshot.materials.map((material) => material.id === materialId ? { ...material, weight } : material),
+          },
+        }),
+      }));
+    };
+    const matchWorkspaceStockWithCurrent = () => {
+      if (!confirm(`Match ${workspace.name} with the current Stock page? This replaces this workspace's saved stock tables, quantities, and mass with the current Stock values.`)) return;
+      const capturedAt = new Date().toISOString();
+      setExecutionProjects((projects) => projects.map((item) => item.id !== project.id ? item : {
+        ...item,
+        files: item.files.map((file) => file.id !== workspace.id ? file : {
+          ...file,
+          stockSnapshot: {
+            materials: JSON.parse(JSON.stringify(materials)) as Material[],
+            assemblies: JSON.parse(JSON.stringify(assemblies)),
+            componentDatabases: JSON.parse(JSON.stringify(componentDatabases)),
+            companyDatabases: JSON.parse(JSON.stringify(companyDatabases)),
+            companyPriceTables: JSON.parse(JSON.stringify(companyPriceTables)),
+            movedOriginalPriceTableIds: JSON.parse(JSON.stringify(movedOriginalPriceTableIds)),
+            capturedAt,
+          },
+        }),
+      }));
+      setWorkspaceStockDatabaseId("prices");
+      setWorkspaceStockSearch("");
+      setWorkspaceStockAssemblyType("");
+    };
+    const profileMaterials = (() => {
+      const all = snapshotMaterials.filter((material) => material.databaseId !== "glass");
+      const lengthMaterials = all.filter((material) => ["m", "lm"].includes(material.unit.toLowerCase()));
+      return (lengthMaterials.length ? lengthMaterials : all).sort((left, right) => `${left.code} ${left.name}`.localeCompare(`${right.code} ${right.name}`));
+    })();
+    const optimization = workspace.optimization ?? { stockLength: 6000, kerf: 3, trim: 10, arrangements: 1000, cuts: [], recommendationMinimum: 4000, recommendationMaximum: 8000, recommendationIncrement: 100 };
+    const updateWorkspaceOptimization = (changes: Partial<NonNullable<ExecutionProjectFile["optimization"]>>) => setExecutionProjects((projects) => projects.map((item) => item.id !== project.id ? item : {
+      ...item,
+      files: item.files.map((file) => file.id !== workspace.id ? file : { ...file, optimization: { ...optimization, ...changes } }),
+    }));
+    const optimizationCutForMaterial = (material?: Material): OptimizationCut => ({
+      id: makeId(),
+      openingName: "",
+      profileId: material?.id ?? "",
+      profileName: material?.name ?? "",
+      profileCode: material?.code ?? "",
+      length: 0,
+      quantity: 1,
+      angle: 90,
+    });
+    const setOptimizationCuts = (cuts: OptimizationCut[]) => updateWorkspaceOptimization({ cuts, result: undefined, recommendation: undefined });
+    const updateOptimizationCut = (cutId: string, changes: Partial<OptimizationCut>) => setOptimizationCuts(optimization.cuts.map((cut) => cut.id === cutId ? { ...cut, ...changes } : cut));
+    const WorkspaceCuttingListPage = () => <section className="workspace-cutting-list-page">
+      <CuttingListSpreadsheet profileCatalog={profileMaterials.map((material) => ({ code: material.code, name: material.name, photo: material.sketch }))} />
+    </section>;
+    const generateWorkspaceOptimization = () => {
+      try {
+        const result = optimizeCuts(optimization);
+        updateWorkspaceOptimization({ result, recommendation: undefined });
+        setWorkspaceOptimizationError("");
+      } catch (error) {
+        setWorkspaceOptimizationError(error instanceof Error ? error.message : "Unable to generate the optimization.");
+      }
+    };
+    const findWorkspaceBestStockLength = () => {
+      try {
+        const recommendation = recommendStockLength({
+          minimum: optimization.recommendationMinimum ?? 4000,
+          maximum: optimization.recommendationMaximum ?? 8000,
+          increment: optimization.recommendationIncrement ?? 100,
+          kerf: optimization.kerf,
+          trim: optimization.trim,
+          cuts: optimization.cuts,
+        });
+        if (!recommendation) throw new Error("No stock length in this range can fit every required cut.");
+        updateWorkspaceOptimization({ recommendation });
+        setWorkspaceOptimizationError("");
+      } catch (error) {
+        setWorkspaceOptimizationError(error instanceof Error ? error.message : "Unable to find a stock-length recommendation.");
+      }
+    };
+    const WorkspaceOptimizationPage = () => <section className="workspace-optimizer">
+      <section className="workspace-optimizer-settings">
+        <div><p className="eyebrow">Cutting optimization</p><h2>Generate the best cutting plan</h2><p>Enter the required cuts in millimeters. The engine keeps each profile separate and tries up to the selected number of arrangements per profile.</p></div>
+        <div className="workspace-optimizer-settings-grid">
+          <label>Stock length <span>mm</span><input type="number" min="1" step="1" value={optimization.stockLength || ""} onChange={(event) => updateWorkspaceOptimization({ stockLength: Math.max(0, Number(event.target.value) || 0), result: undefined, recommendation: undefined })} /></label>
+          <label>Saw kerf <span>mm</span><input type="number" min="0" step="0.1" value={optimization.kerf || ""} onChange={(event) => updateWorkspaceOptimization({ kerf: Math.max(0, Number(event.target.value) || 0), result: undefined, recommendation: undefined })} /></label>
+          <label>End trim <span>mm</span><input type="number" min="0" step="0.1" value={optimization.trim || ""} onChange={(event) => updateWorkspaceOptimization({ trim: Math.max(0, Number(event.target.value) || 0), result: undefined, recommendation: undefined })} /></label>
+          <label>Search depth<select value={optimization.arrangements} onChange={(event) => updateWorkspaceOptimization({ arrangements: Number(event.target.value), result: undefined, recommendation: undefined })}><option value={100}>Fast · 100 arrangements</option><option value={1000}>Standard · 1,000 arrangements</option><option value={5000}>Deep · 5,000 arrangements</option></select></label>
+        </div>
+      </section>
+      <section className="workspace-cut-list">
+        <header><div><h2>Required cuts</h2><p>Use the profiles from this workspace’s independent Stock snapshot.</p></div><button type="button" className="secondary-button" onClick={() => { if (!profileMaterials.length) { setWorkspaceOptimizationError("No profiles are available in this workspace Stock snapshot."); return; } setOptimizationCuts([...optimization.cuts, optimizationCutForMaterial(profileMaterials[0])]); }}><Icon name="plus" size={15} /> Add cut</button></header>
+        <div className="workspace-cut-grid" role="table"><div className="workspace-cut-grid-header" role="row"><span>Opening / item</span><span>Profile</span><span>Cut length</span><span>Qty</span><span>Angle</span><span /></div>{optimization.cuts.map((cut) => <div className="workspace-cut-grid-row" role="row" key={cut.id}><span><input aria-label="Opening or item" value={cut.openingName} placeholder="e.g. Window A" onChange={(event) => updateOptimizationCut(cut.id, { openingName: event.target.value })} /></span><span><select aria-label="Profile" value={cut.profileId} onChange={(event) => { const material = profileMaterials.find((item) => item.id === event.target.value); updateOptimizationCut(cut.id, { profileId: material?.id ?? "", profileName: material?.name ?? "", profileCode: material?.code ?? "" }); }}><option value="">Choose profile</option>{profileMaterials.map((material) => <option key={material.id} value={material.id}>{material.code} · {material.name}</option>)}</select></span><span className="workspace-cut-length"><input aria-label="Cut length in millimeters" type="number" min="0.1" step="0.1" value={cut.length || ""} onChange={(event) => updateOptimizationCut(cut.id, { length: Math.max(0, Number(event.target.value) || 0) })} /><em>mm</em></span><span><input aria-label="Quantity" type="number" min="1" step="1" value={cut.quantity || ""} onChange={(event) => updateOptimizationCut(cut.id, { quantity: Math.max(1, Math.floor(Number(event.target.value) || 1)) })} /></span><span><select aria-label="Cut angle" value={cut.angle} onChange={(event) => updateOptimizationCut(cut.id, { angle: Number(event.target.value) as 45 | 90 })}><option value={90}>90°</option><option value={45}>45°</option></select></span><span><button className="icon-button danger" type="button" aria-label="Delete cut" onClick={() => setOptimizationCuts(optimization.cuts.filter((item) => item.id !== cut.id))}><Icon name="trash" size={15} /></button></span></div>)}{!optimization.cuts.length && <p className="workspace-cut-empty">Add the first required cut to generate an optimization.</p>}</div>
+        {workspaceOptimizationError && <p className="workspace-optimization-error" role="alert">{workspaceOptimizationError}</p>}
+        <div className="workspace-optimizer-actions"><button type="button" className="primary-button" onClick={generateWorkspaceOptimization}><Icon name="box" size={16} /> Generate optimized plan</button><button type="button" className="secondary-button" onClick={findWorkspaceBestStockLength}>Find best stock length</button></div>
+      </section>
+      <section className="workspace-stock-advisor"><div><b>Best stock length advisor</b><span>Tests the selected range with the fast optimizer, then you can use the recommended length for the full arrangement search.</span></div><label>Minimum<input type="number" min="1" step="100" value={optimization.recommendationMinimum ?? 4000} onChange={(event) => updateWorkspaceOptimization({ recommendationMinimum: Math.max(0, Number(event.target.value) || 0) })} /></label><label>Maximum<input type="number" min="1" step="100" value={optimization.recommendationMaximum ?? 8000} onChange={(event) => updateWorkspaceOptimization({ recommendationMaximum: Math.max(0, Number(event.target.value) || 0) })} /></label><label>Step<input type="number" min="1" step="10" value={optimization.recommendationIncrement ?? 100} onChange={(event) => updateWorkspaceOptimization({ recommendationIncrement: Math.max(1, Number(event.target.value) || 100) })} /></label>{optimization.recommendation && <div className="workspace-stock-recommendation"><strong>{number(optimization.recommendation.length)} mm recommended</strong><span>{optimization.recommendation.result.bars.length} bars · {number(optimization.recommendation.result.utilization, 1)}% utilization</span><button type="button" onClick={() => updateWorkspaceOptimization({ stockLength: optimization.recommendation!.length, result: undefined })}>Use this length</button></div>}</section>
+      {optimization.result && <section className="workspace-optimization-result"><header><div><p className="eyebrow">Optimized result</p><h2>Cutting plan</h2><p>{optimization.result.minimumProven ? "The lower bound was reached for every profile." : `Best result after up to ${optimization.result.arrangements.toLocaleString()} arrangements per profile.`}</p></div><div className="workspace-optimization-metrics"><span><b>{optimization.result.bars.length}</b>stock bars</span><span><b>{number(optimization.result.utilization, 1)}%</b>utilization</span><span><b>{number(optimization.result.waste / 1000, 2)} m</b>offcut</span></div></header><div className="workspace-bar-list">{optimization.result.bars.map((bar, index) => <article className="workspace-bar" key={bar.id}><div className="workspace-bar-heading"><b>{bar.profileCode || bar.profileName} · Bar {String(index + 1).padStart(2, "0")}</b><span>{number(bar.used, 1)} mm used · {number(bar.waste, 1)} mm offcut</span></div><div className="workspace-bar-visual">{bar.pieces.map((piece) => <span key={piece.id} style={{ width: `${Math.max(2, piece.length / optimization.result!.stockLength * 100)}%` }} title={`${piece.openingName || piece.profileName}: ${number(piece.length)} mm`}>{piece.openingName || piece.profileCode}</span>)}<i style={{ width: `${Math.max(0, bar.waste / optimization.result!.stockLength * 100)}%` }} /></div><p>{bar.pieces.map((piece) => `${piece.openingName || piece.profileCode} · ${number(piece.length)} mm · ${piece.angle}°`).join("  |  ")}</p></article>)}</div></section>}
+    </section>;
+    return (
+      <div className="execution-workspace-app">
+        <aside className="execution-workspace-sidebar">
+          <button className="execution-projects-brand" type="button" onClick={() => setScreen("execution-project-detail")} aria-label="Return to project files">
+            <Icon name="arrow" size={20} />
+            <span>Project<br />workspace</span>
+          </button>
+          <p>{workspace.name}</p>
+          <nav aria-label="Workspace pages">
+            {pages.map((page) => <button key={page.id} type="button" className={executionWorkspacePage === page.id ? "active" : ""} onClick={() => setExecutionWorkspacePage(page.id)}><Icon name={page.id === "material-order" ? "order" : page.id === "database" ? "layers" : "box"} size={18} /><span>{page.label}</span></button>)}
+          </nav>
+        </aside>
+        <div className={`execution-workspace-content${currentPage.id === "cutting-list" ? " execution-workspace-content--cutting-list" : ""}`}>
+          {currentPage.id !== "cutting-list" && <header className="execution-projects-topbar"><span>{workspace.name}</span><ProfileMenu /></header>}
+          <main className={`execution-workspace-main${currentPage.id === "cutting-list" ? " execution-workspace-main--cutting-list" : ""}`}>
+            {currentPage.id !== "cutting-list" && <>
+              <button className="back-button" type="button" onClick={() => setScreen("execution-project-detail")}>Project files</button>
+              <p className="eyebrow">{project.name}</p>
+              <h1>{currentPage.label}</h1>
+              <p className="intro">{currentPage.description}</p>
+            </>}
+            {currentPage.id === "cutting-list" ? WorkspaceCuttingListPage() : currentPage.id === "optimization" ? WorkspaceOptimizationPage() : currentPage.id === "database" ? stockSnapshot ? (
+              <section className="workspace-stock-page">
+                <div className="workspace-stock-tabs" role="tablist" aria-label="Workspace stock databases">
+                  {stockTabs.map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={activeWorkspaceStockDatabase === tab.id} className={activeWorkspaceStockDatabase === tab.id ? "active" : ""} onClick={() => setWorkspaceStockDatabaseId(tab.id)}>{tab.label}</button>)}
+                </div>
+                <section className="library-panel price-book-panel workspace-stock-panel">
+                  <div className="workspace-stock-notice"><div><b>Stock snapshot</b><span>Captured {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(new Date(stockSnapshot.capturedAt))}. This is the same Stock table structure, saved independently for {workspace.name}.</span></div><div className="workspace-stock-notice-actions"><strong>{stockMaterialCount} materials</strong><button type="button" onClick={matchWorkspaceStockWithCurrent}>Match with current Stock</button></div></div>
+                  <div className="toolbar">
+                    <label className="search-field"><Icon name="search" size={17} /><span className="sr-only">Search workspace stock</span><input value={workspaceStockSearch} onChange={(event) => setWorkspaceStockSearch(event.target.value)} placeholder={`Search ${stockTabs.find((tab) => tab.id === activeWorkspaceStockDatabase)?.label ?? "database"}`} /></label>
+                    <label className="assembly-type-filter"><span>Assembly type</span><select value={workspaceStockAssemblyType} onChange={(event) => setWorkspaceStockAssemblyType(event.target.value)}><option value="">All assembly types</option>{snapshotAssemblyTypeNames.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
+                    <span className="item-count">{stockMaterialCount} materials</span>
+                  </div>
+                  {stockTables.map((table) => <section className={`price-book-section ${table.section} stock-book-section workspace-stock-section`} key={table.id}>
+                    <header className="price-book-section-header"><div><h2>{table.title}</h2><p>{table.note}</p></div><div className="price-book-section-actions"><span>{table.rows.length}</span></div></header>
+                    <div className="material-list price-book-table stock-book-table workspace-stock-table" role="table" aria-label={`${table.title} stock`}>
+                      <div className="material-list-header" role="row"><span>Ref.</span><span>Profile photo / name</span><span>Profile ref.</span><span>Used in assembly type</span><span>Unit</span><span>Mass / length</span><span>Stock length</span><span>Qty</span></div>
+                      {table.rows.map((material, index) => {
+                        const entries = stockEntriesFor(material);
+                        const updateEntry = (entryId: string, field: "length" | "quantity", value: string) => saveWorkspaceStockEntries(material.id, entries.map((entry) => entry.id === entryId ? { ...entry, [field]: Math.max(0, Number(value) || 0) } : entry));
+                        const usageText = (assemblyUsageByMaterial.get(material.id) ?? []).join(", ");
+                        return <div className="material-list-row" role="row" key={material.id}>
+                          <span className="price-reference">{table.prefix}{index + 1}</span>
+                          <span className="material-list-name"><span className="price-photo-cell"><Sketch path={material.sketch} label={material.name} /></span><b>{material.name}</b>{material.manufacturer && <small>{material.manufacturer}</small>}</span>
+                          <span>{material.code || "—"}</span><span className="assembly-usage" title={usageText || "Not used in an assembly type"}>{usageText || "Not used"}</span><span>{material.unit}</span><span className="stock-mass-cell"><input className="stock-input" aria-label={`Mass per length for ${material.name}`} type="number" min="0" step="any" value={material.weight || ""} onChange={(event) => saveWorkspaceMaterialMass(material.id, event.target.value)} /><em>{["m", "lm"].includes(material.unit.toLowerCase()) ? "kg/m" : "kg/unit"}</em></span>
+                          <span className="stock-cell stock-entry-list">{entries.map((entry) => <span className="stock-entry-row" key={entry.id}><input className="stock-input" aria-label={`Stock length for ${material.name}`} type="number" min="0" step="any" value={entry.length || ""} onChange={(event) => updateEntry(entry.id, "length", event.target.value)} onContextMenu={(event) => { event.preventDefault(); setStockLengthMenu({ materialId: material.id, entryId: entry.id }); }} /><em>m</em>{stockLengthMenu?.materialId === material.id && stockLengthMenu.entryId === entry.id && <span className="stock-length-menu" role="menu"><button type="button" onClick={() => { saveWorkspaceStockEntries(material.id, [...entries, { id: makeId(), length: 0, quantity: 0 }]); setStockLengthMenu(null); }}>Add another stock length</button>{entries.length > 1 && <button type="button" className="danger" onClick={() => { saveWorkspaceStockEntries(material.id, entries.filter((value) => value.id !== entry.id)); setStockLengthMenu(null); }}>Delete stock length</button>}</span>}</span>)}</span>
+                          <span className="stock-cell stock-entry-list">{entries.map((entry) => <span className="stock-entry-row" key={entry.id}><input className="stock-input" aria-label={`Stock quantity for ${material.name}`} type="number" min="0" step="1" value={entry.quantity || ""} onChange={(event) => updateEntry(entry.id, "quantity", event.target.value)} /></span>)}</span>
+                        </div>;
+                      })}
+                      {!table.rows.length && <p className="price-book-empty">No materials in this price group yet.</p>}
+                    </div>
+                  </section>)}
+                  {!stockTables.length && <p className="price-book-empty">No tables are saved in this database snapshot.</p>}
+                </section>
+              </section>
+            ) : <section className="execution-workspace-empty"><Icon name="layers" size={34} /><h2>No stock snapshot</h2><p>This workspace was created before stock snapshots were added. Create a new workspace to capture the current Stock page.</p></section> : <section className="execution-workspace-empty"><Icon name={currentPage.id === "material-order" ? "order" : "box"} size={34} /><h2>{currentPage.label}</h2><p>This page is ready for its project tools.</p></section>}
+          </main>
+        </div>
+      </div>
+    );
+  };
   const Canvas = () =>
     !project ? (
       <Projects />
@@ -3665,7 +4125,8 @@ function App() {
       </section>
     );
   if (screen === "home") return <AmaHome />;
-  if (screen === "stock") return <StockWorkspace />;
+  if (screen === "execution-workspace") return ExecutionWorkspaceApp();
+  if (screen === "execution-projects" || screen === "execution-project-detail") return <ExecutionProjectsApp />;
 
   return (
     <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
@@ -3675,18 +4136,23 @@ function App() {
           <span>
             AMA
             <br />
-            Estimation
+            {screen === "stock" ? "Stock" : "Estimation"}
           </span>
         </button>
-        <button
+        {screen !== "stock" && <button
           className="sidebar-collapse"
           onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
           aria-label={sidebarCollapsed ? "Expand main navigation" : "Collapse main navigation"}
           title={sidebarCollapsed ? "Expand main navigation" : "Collapse main navigation"}
         >
           <Icon name="arrow" size={16} />
-        </button>
+        </button>}
         <nav>
+          {screen === "stock" ? (
+            <button className="active" onClick={() => { setActiveDatabaseId("prices"); setScreen("stock"); }}>
+              <Icon name="warehouse" /> <span>Stock</span>
+            </button>
+          ) : <>
           <PermissionGate permission={WORKSPACE_PERMISSIONS.VIEW_PROJECTS}>
             <button
               className={screen === "projects" || screen === "canvas" ? "active" : ""}
@@ -3728,20 +4194,21 @@ function App() {
               <Icon name="box" /> <span>Excel</span>
             </button>
           </PermissionGate>
+          </>}
         </nav>
-        <div className="sidebar-note">
+        {screen !== "stock" && <div className="sidebar-note">
           <span className={`status-dot ${workspaceSaveStatus}`} /> Local workspace
           <br />
           <small>{workspaceSaveStatus === "saving" ? "Saving changes…" : workspaceSaveStatus === "error" ? "Save failed — changes are still open." : "All changes saved to SQLite."}</small>
           {recentWorkspaceSaves.length > 0 && <ol className="save-history" aria-label="Recent saves">{recentWorkspaceSaves.map((savedAt, index) => <li key={`${savedAt}-${index}`}>Saved {savedAt}</li>)}</ol>}
-        </div>
+        </div>}
       </aside>
       <main className="main-content">
         <header className="topbar">
-          {screen === "database" ? <div className="system-top-actions"><button type="button" className={activeDatabaseId === "prices" ? "active" : ""} onClick={() => setActiveDatabaseId("prices")}>Soleal Database</button>{companyDatabases.map((database) => <button key={database.id} type="button" className={activeDatabaseId === database.id ? "active" : ""} onClick={() => setActiveDatabaseId(database.id)}>{database.name} Database</button>)}<button type="button" className="add-system-button" onClick={openNewCompanyDatabase}><Icon name="plus" size={14} /> Add other system</button></div> : <div className="breadcrumb">{screen === "canvas" ? "Project canvas" : screen[0].toUpperCase() + screen.slice(1)}</div>}
+          {screen === "database" || screen === "stock" ? <div className="system-top-actions"><button type="button" className={activeDatabaseId === "prices" ? "active" : ""} onClick={() => setActiveDatabaseId("prices")}>Soleal Database</button>{companyDatabases.map((database) => <button key={database.id} type="button" className={activeDatabaseId === database.id ? "active" : ""} onClick={() => setActiveDatabaseId(database.id)}>{database.name} Database</button>)}{screen === "database" && <button type="button" className="add-system-button" onClick={openNewCompanyDatabase}><Icon name="plus" size={14} /> Add other system</button>}</div> : <div className="breadcrumb">{screen === "canvas" ? "Project canvas" : screen[0].toUpperCase() + screen.slice(1)}</div>}
           <ProfileMenu />
         </header>
-        {screen === "database" && (activeDatabaseId === "prices" || companyDatabases.some((database) => database.id === activeDatabaseId) ? <PriceBook /> : activeDatabaseId === "costing-financials" ? (
+        {(screen === "database" || screen === "stock") && (activeDatabaseId === "prices" || companyDatabases.some((database) => database.id === activeDatabaseId) ? <PriceBook view={screen === "stock" ? "stock" : "prices"} /> : screen === "database" && activeDatabaseId === "costing-financials" ? (
           <CostingFinancials
             Icon={Icon}
             search={search}
@@ -3759,7 +4226,7 @@ function App() {
             setShippingCosts={setShippingCosts}
             setMaterials={setMaterials}
           />
-        ) : <Library type="material" />)}
+        ) : screen === "database" ? <Library type="material" /> : null)}
         {screen === "assemblies" && <AssemblyLibrary />}
         {screen === "projects" && <Projects />}
         {screen === "canvas" && <Canvas />}
@@ -3786,7 +4253,7 @@ function App() {
               <div>
                 <p className="eyebrow">{modal.id ? "Edit" : "New"} item</p>
                 <h2>
-                  {modal.id ? "Edit" : "Add"} {modal.type}
+                  {modal.id ? "Edit" : "Add"} {modal.type === "executionProject" ? "project" : modal.type}
                 </h2>
               </div>
               <div className="dialog-header-actions">
@@ -3797,13 +4264,13 @@ function App() {
             <form onSubmit={save}>
               <div className="dialog-form">
                 <label>
-                  {modal.type === "project" ? "Project name" : modal.type === "material" && (activeDatabaseId === "glass" || materialDatabaseOverride === "glass") ? "Glass name / reference" : "Name"} <span>*</span>
+                  {(modal.type === "project" || modal.type === "executionProject") ? "Project name" : modal.type === "material" && (activeDatabaseId === "glass" || materialDatabaseOverride === "glass") ? "Glass name / reference" : "Name"} <span>*</span>
                   <input
                     autoFocus
                     required
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
-                    placeholder={modal.type === "project" ? "Project 1" : `Enter ${modal.type} name`}
+                    placeholder={(modal.type === "project" || modal.type === "executionProject") ? "Project 1" : `Enter ${modal.type} name`}
                   />
                 </label>
                 {modal.type === "material" && (activeDatabaseId === "glass" || materialDatabaseOverride === "glass") && <section className="glass-form-fields">
@@ -3813,7 +4280,7 @@ function App() {
                   <section className="material-photo-field" tabIndex={0} onPaste={pasteMaterialPhoto} onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.focus(); }}><label>Photo <small>(optional)</small><input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) setMaterialPhoto(file); }} /><small>Choose an image file.</small></label><button type="button" className="paste-photo-button">Paste photo (then Ctrl+V)</button><small className="paste-photo-help">Copy an image, click this button, then press Ctrl+V.</small>{materialSketch.startsWith("data:image/") && <img className="glass-photo-preview" src={materialSketch} alt="Glass preview" />}</section>
                   <label>Price / sqm<input required type="number" min="0" step="any" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0" /></label>
                 </section>}
-                {modal.type !== "project" && !(modal.type === "material" && (activeDatabaseId === "glass" || materialDatabaseOverride === "glass")) && (
+                {modal.type !== "project" && modal.type !== "executionProject" && !(modal.type === "material" && (activeDatabaseId === "glass" || materialDatabaseOverride === "glass")) && (
                   <div className="two-fields">
                     <label>
                       Code {modal.type === "material" && <span>*</span>}
@@ -4059,7 +4526,7 @@ function App() {
                     </section>
                   </>
                 )}
-                {modal.type === "project" && (
+                {(modal.type === "project" || modal.type === "executionProject") && (
                   <>
                     <label>
                       Client name <span>*</span>
@@ -4070,7 +4537,7 @@ function App() {
                       <input value={formCompany} onChange={(e) => setFormCompany(e.target.value)} placeholder="Company" />
                     </label>
                     <label>
-                      Location1 <span>*</span>
+                      Location <span>*</span>
                       <input required value={formLocation} onChange={(e) => setFormLocation(e.target.value)} placeholder="Lebanon" />
                     </label>
                   </>
@@ -4082,7 +4549,7 @@ function App() {
                   <button type="button" className="primary-button" onClick={closeModal}>Exit</button>
                 </> : <>
                   <button type="button" className="secondary-button" onClick={closeModal}>Cancel</button>
-                  <button className="primary-button" type="submit">{modal.type === "assembly" ? "Create assembly" : `Save ${modal.type}`}</button>
+                  <button className="primary-button" type="submit">{modal.type === "assembly" ? "Create assembly" : modal.type === "executionProject" ? "Create project" : `Save ${modal.type}`}</button>
                 </>}
               </div>
             </form>

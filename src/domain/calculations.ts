@@ -58,6 +58,6 @@ export const conditionMatches = (condition: string | undefined, widthMm: number,
   try { return Boolean(Function(`"use strict"; return (${expression});`)()); } catch { return false; }
 };
 
-export const number = (value: number) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 3 }).format(value);
+export const number = (value: number, maximumFractionDigits = 3) => new Intl.NumberFormat("en-US", { maximumFractionDigits }).format(value);
 export const money = (value: number) => `${number(value)} $`;
 export const unitPriceWithShipping = (material: Material, shippingPercentage = material.shippingPercentage ?? 0) => material.cost * (1 + Math.max(0, shippingPercentage) / 100);

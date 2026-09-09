@@ -18,6 +18,10 @@ pub const PERMISSION_CATALOG: &[(&str, &str, &str, &str)] = &[
     ("workspace.projects.delete", "workspace", "Delete projects", "Can delete existing projects."),
     ("workspace.canvas.edit", "workspace", "Edit project canvas", "Can draw/edit openings on a project canvas."),
 
+    ("workspace.execution-projects.view", "workspace", "View projects under execution", "Can open the operational projects screen."),
+    ("workspace.execution-projects.create", "workspace", "Create projects under execution", "Can add operational projects."),
+    ("workspace.execution-projects.delete", "workspace", "Delete projects under execution", "Can delete operational projects."),
+
     ("workspace.database.view", "workspace", "View material database", "Can open the Database screen (price book, glass, costing & financials)."),
     ("workspace.materials.create", "workspace", "Create materials", "Can add new materials to the price book."),
     ("workspace.materials.edit", "workspace", "Edit materials", "Can edit existing material fields (cost, weight, shipping, etc.)."),

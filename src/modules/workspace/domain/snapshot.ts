@@ -3,6 +3,7 @@ import type {
   CompanyDatabase,
   CompanyPriceTable,
   ComponentDatabase,
+  ExecutionProject,
   ManpowerCost,
   MarkupRate,
   Material,
@@ -21,6 +22,7 @@ export type WorkspaceSnapshotV1 = {
   materials: Material[];
   assemblies: Assembly[];
   projects: Project[];
+  executionProjects: ExecutionProject[];
   componentDatabases: ComponentDatabase[];
   weightRates: Record<string, number>;
   markupRates: MarkupRate[];

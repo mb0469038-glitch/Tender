@@ -12,6 +12,10 @@ export const WORKSPACE_PERMISSIONS = {
   DELETE_PROJECT: "workspace.projects.delete",
   EDIT_CANVAS: "workspace.canvas.edit",
 
+  VIEW_EXECUTION_PROJECTS: "workspace.execution-projects.view",
+  CREATE_EXECUTION_PROJECT: "workspace.execution-projects.create",
+  DELETE_EXECUTION_PROJECT: "workspace.execution-projects.delete",
+
   VIEW_DATABASE: "workspace.database.view",
   CREATE_MATERIAL: "workspace.materials.create",
   EDIT_MATERIAL: "workspace.materials.edit",

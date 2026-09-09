@@ -10,6 +10,7 @@ import { WORKSPACE_PERMISSIONS } from "../../modules/workspace-legacy/domain/per
  */
 export const NAV_PERMISSION_MAP = {
   "nav.projects": WORKSPACE_PERMISSIONS.VIEW_PROJECTS,
+  "nav.execution-projects": WORKSPACE_PERMISSIONS.VIEW_EXECUTION_PROJECTS,
   "nav.database": WORKSPACE_PERMISSIONS.VIEW_DATABASE,
   "nav.assemblies": WORKSPACE_PERMISSIONS.VIEW_ASSEMBLIES,
   "nav.excel": WORKSPACE_PERMISSIONS.VIEW_EXCEL,

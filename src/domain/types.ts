@@ -1,3 +1,9 @@
+export type StockEntry = {
+  id: string;
+  length: number;
+  quantity: number;
+};
+
 export type Material = {
   id: string;
   name: string;
@@ -22,6 +28,12 @@ export type Material = {
   companyTableId?: string;
   quantityFormula?: string;
   wastage?: number;
+  /** Physical length of one stocked bar/item, in metres. */
+  stockLength?: number;
+  /** Current on-hand quantity for stock control. */
+  stockQuantity?: number;
+  /** Individual stocked lengths and their quantities. */
+  stockEntries?: StockEntry[];
   priceTable?: "profiles" | "accessories" | "general";
   thickness?: string;
   description?: string;
@@ -167,6 +179,53 @@ export type Project = {
   items: CanvasItem[];
   canvases?: ProjectCanvas[];
 };
+/** Operational projects are independent of tender-estimation drawings. */
+export type ExecutionProjectFile = {
+  id: string;
+  name: string;
+  /** `optimization` and `material-order` are retained for existing saved projects. */
+  type: "folder" | "optimization" | "material-order" | "optimization-material-order" | "excel";
+  parentId: string | null;
+  createdAt: string;
+  /** Legacy upload fields retained to preserve saved data. Excel archiving is disabled. */
+  content?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  updatedAt?: string;
+  /** Independent copy of every data source used by the Stock page at workspace creation. */
+  stockSnapshot?: {
+    materials: Material[];
+    assemblies: Assembly[];
+    componentDatabases: ComponentDatabase[];
+    companyDatabases: CompanyDatabase[];
+    companyPriceTables: CompanyPriceTable[];
+    /** Hidden/moved standard Stock tables at the time this workspace was created. */
+    movedOriginalPriceTableIds?: string[];
+    capturedAt: string;
+  };
+  /** Saved inputs and results for the independent cutting-optimization page. */
+  optimization?: {
+    stockLength: number;
+    kerf: number;
+    trim: number;
+    arrangements: number;
+    cuts: OptimizationCut[];
+    result?: OptimizationResult;
+    recommendation?: StockLengthRecommendation;
+    recommendationMinimum?: number;
+    recommendationMaximum?: number;
+    recommendationIncrement?: number;
+  };
+};
+export type ExecutionProject = {
+  id: string;
+  name: string;
+  client: string;
+  company?: string;
+  location: string;
+  createdAt: string;
+  files: ExecutionProjectFile[];
+};
 export type ComponentDatabase = { id: string; name: string; parent: "technal" | "sidem" };
 export type CompanyDatabase = { id: string; name: string };
 export type CompanyPriceTable = { id: string; companyDatabaseId: string; name: string; referencePrefix: string };
@@ -174,5 +233,6 @@ export type MarkupRate = { id: string; name: string; typeA: number; typeB: numbe
 export type ManpowerCost = { id: string; name: string; rate: number };
 export type ShippingType = { id: string; name: string };
 export type ShippingCost = { id: string; name: string; values: Record<string, number> };
-export type Screen = "home" | "stock" | "database" | "projects" | "canvas" | "assemblies" | "excel";
-export type Modal = { type: "material" | "assembly" | "project"; id?: string } | null;
+export type Screen = "home" | "stock" | "database" | "projects" | "execution-projects" | "execution-project-detail" | "execution-workspace" | "canvas" | "assemblies" | "excel";
+export type Modal = { type: "material" | "assembly" | "project" | "executionProject"; id?: string } | null;
+import type { OptimizationCut, OptimizationResult, StockLengthRecommendation } from "../modules/execution/domain/cuttingOptimizer";
