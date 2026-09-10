@@ -106,3 +106,13 @@ Before completing any task or editing code, verify:
 - [ ] Are all imports pointing inward according to Clean Architecture?
 - [ ] Did I avoid hardcoded placeholders or broken stubs?
 - [ ] Are TypeScript types explicit, clean, and free of unnecessary `any`?
+
+---
+
+## 8. Local Development & Hot Reload Rule
+
+* **When user says "run local host" (or similar):**
+  * **Always launch the local Vite dev server** (`cmd.exe /c "npm run dev"`) as a daemon on `http://localhost:1420`.
+  * **Never restart or rebuild Docker containers** for local frontend development.
+  * Rely on **Vite Hot Module Replacement (HMR)** so all frontend changes in `src/` appear instantly in milliseconds without browser reloads or container reboots.
+  * Ensure the local Vite dev server proxies `/api/*` to the cloud backend (`http://213.199.37.145`) so authentication, database, and workspace persistence work immediately on localhost.
