@@ -1,7 +1,5 @@
 import { useAppState } from "./application/useAppState";
 import { projectYears } from "./modules/projects/domain/projectDefaults";
-import { AmaHome } from "./modules/workspace/ui/AmaHome";
-import { ExecutionProjectsScreen } from "./modules/execution/ui/ExecutionProjectsScreen";
 import { ExecutionWorkspaceScreen } from "./modules/execution/ui/ExecutionWorkspaceScreen";
 import { AppSidebar } from "./ui/AppSidebar";
 import { AppTopbar } from "./ui/AppTopbar";
@@ -11,16 +9,6 @@ import "./App.css";
 
 export function App() {
   const state = useAppState();
-
-  if (state.screen === "home") {
-    return (
-      <AmaHome
-        onSelectEstimation={() => state.setScreen("projects")}
-        onSelectStock={() => state.setScreen("stock")}
-        onSelectExecution={() => state.setScreen("execution-projects")}
-      />
-    );
-  }
 
   if (state.screen === "execution-workspace") {
     const project = state.execution.executionProjects.find(
@@ -59,68 +47,49 @@ export function App() {
     );
   }
 
-  if (state.screen === "execution-projects" || state.screen === "execution-project-detail") {
-    return (
-      <ExecutionProjectsScreen
-        screen={state.screen}
-        setScreen={state.setScreen}
-        executionProjects={state.execution.executionProjects}
-        selectedExecutionProjectId={state.execution.selectedExecutionProjectId}
-        executionFolderId={state.execution.executionFolderId}
-        setExecutionFolderId={state.execution.setExecutionFolderId}
-        executionNewMenuOpen={state.execution.executionNewMenuOpen}
-        setExecutionNewMenuOpen={state.execution.setExecutionNewMenuOpen}
-        newExecutionItemType={state.execution.newExecutionItemType}
-        setNewExecutionItemType={state.execution.setNewExecutionItemType}
-        newExecutionItemName={state.execution.newExecutionItemName}
-        setNewExecutionItemName={state.execution.setNewExecutionItemName}
-        openModal={state.modals.openModal}
-        openExecutionProject={state.execution.openExecutionProject}
-        copyExecutionProject={state.execution.copyExecutionProject}
-        removeExecutionProject={state.execution.removeExecutionProject}
-        openExecutionWorkspace={state.execution.openExecutionWorkspace}
-        createExecutionProjectItem={state.execution.createExecutionProjectItem}
-        removeExecutionProjectItem={state.execution.removeExecutionProjectItem}
-      />
-    );
-  }
-
   return (
-    <div className="min-h-screen flex">
-      <AppSidebar
-        sidebarCollapsed={state.sidebarCollapsed}
-        setSidebarCollapsed={state.setSidebarCollapsed}
+    <div className="min-h-screen flex flex-col bg-[#F8FAFC]">
+      <AppTopbar
         screen={state.screen}
         setScreen={state.setScreen}
-        projectsOpen={state.projectsOpen}
-        setProjectsOpen={state.setProjectsOpen}
-        projectYears={projectYears}
-        activeProjectYear={state.activeProjectYear}
-        setActiveProjectYear={state.setActiveProjectYear}
-        databaseOpen={state.databaseOpen}
-        setDatabaseOpen={state.setDatabaseOpen}
         activeDatabaseId={state.activeDatabaseId}
         setActiveDatabaseId={state.setActiveDatabaseId}
-        assembliesOpen={state.assembliesOpen}
-        setAssembliesOpen={state.setAssembliesOpen}
-        activeAssemblySystem={state.activeAssemblySystem}
-        setActiveAssemblySystem={state.setActiveAssemblySystem}
-        componentDatabases={state.componentDatabases}
-        openNewDatabase={state.modals.openNewDatabase}
-        workspaceSaveStatus={state.persistence.workspaceSaveStatus}
-        recentWorkspaceSaves={state.persistence.recentWorkspaceSaves}
+        companyDatabases={state.companyDatabases}
+        openNewCompanyDatabase={state.modals.openNewCompanyDatabase}
       />
 
-      <main className="min-w-0 flex-1 max-[900px]:w-full">
-        <AppTopbar
+      <div className="flex-1 flex min-h-0">
+        <AppSidebar
+          sidebarCollapsed={state.sidebarCollapsed}
+          setSidebarCollapsed={state.setSidebarCollapsed}
           screen={state.screen}
+          setScreen={state.setScreen}
+          projectsOpen={state.projectsOpen}
+          setProjectsOpen={state.setProjectsOpen}
+          projectYears={projectYears}
+          activeProjectYear={state.activeProjectYear}
+          setActiveProjectYear={state.setActiveProjectYear}
+          databaseOpen={state.databaseOpen}
+          setDatabaseOpen={state.setDatabaseOpen}
           activeDatabaseId={state.activeDatabaseId}
           setActiveDatabaseId={state.setActiveDatabaseId}
-          companyDatabases={state.companyDatabases}
-          openNewCompanyDatabase={state.modals.openNewCompanyDatabase}
+          assembliesOpen={state.assembliesOpen}
+          setAssembliesOpen={state.setAssembliesOpen}
+          activeAssemblySystem={state.activeAssemblySystem}
+          setActiveAssemblySystem={state.setActiveAssemblySystem}
+          componentDatabases={state.componentDatabases}
+          openNewDatabase={state.modals.openNewDatabase}
+          workspaceSaveStatus={state.persistence.workspaceSaveStatus}
+          recentWorkspaceSaves={state.persistence.recentWorkspaceSaves}
+          executionProjects={state.execution.executionProjects}
+          selectedExecutionProjectId={state.execution.selectedExecutionProjectId}
+          openExecutionProject={state.execution.openExecutionProject}
+          setExecutionFolderId={state.execution.setExecutionFolderId}
         />
 
-        <AppScreens
+        <main className="min-w-0 flex-1 max-[900px]:w-full overflow-y-auto">
+          <AppScreens
+            execution={state.execution}
           screen={state.screen}
           activeDatabaseId={state.activeDatabaseId}
           activeAssemblySystem={state.activeAssemblySystem}
@@ -177,19 +146,20 @@ export function App() {
           takeoff={state.takeoff}
         />
       </main>
-
-      <AppModals
-        modals={state.modals}
-        canvasInteraction={state.canvasInteraction}
-        assemblies={state.assemblies}
-        materials={state.materials}
-        companyDatabases={state.companyDatabases}
-        materialDatabaseReference={state.materialDatabaseReference}
-        activeDatabaseId={state.activeDatabaseId}
-        workspaceSaveStatus={state.persistence.workspaceSaveStatus}
-      />
     </div>
-  );
+
+    <AppModals
+      modals={state.modals}
+      canvasInteraction={state.canvasInteraction}
+      assemblies={state.assemblies}
+      materials={state.materials}
+      companyDatabases={state.companyDatabases}
+      materialDatabaseReference={state.materialDatabaseReference}
+      activeDatabaseId={state.activeDatabaseId}
+      workspaceSaveStatus={state.persistence.workspaceSaveStatus}
+    />
+  </div>
+);
 }
 
 export default App;

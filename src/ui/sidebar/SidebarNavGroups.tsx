@@ -1,4 +1,4 @@
-import type { ComponentDatabase, Screen } from "../../domain/types";
+import type { ComponentDatabase, ExecutionProject, Screen } from "../../domain/types";
 import { PermissionGate } from "../../shared/permissions/PermissionGate";
 import { WORKSPACE_PERMISSIONS } from "../../modules/workspace-legacy/domain/permissions";
 import {
@@ -14,6 +14,7 @@ import {
   Layers3,
   FileSpreadsheet,
   Warehouse,
+  FolderKanban,
   ChevronDown,
   Plus,
 } from "lucide-react";
@@ -39,6 +40,10 @@ export type SidebarNavGroupsProps = {
   openNewDatabase: (parent: "technal" | "sidem") => void;
   topNavBtnClass: (isActive: boolean) => string;
   subNavBtnClass: (isActive: boolean) => string;
+  executionProjects?: ExecutionProject[];
+  selectedExecutionProjectId?: string;
+  openExecutionProject?: (id: string) => void;
+  setExecutionFolderId?: (id: string | null) => void;
 };
 
 const DATABASE_NAV_ITEMS = [
@@ -76,10 +81,14 @@ export function SidebarNavGroups({
   openNewDatabase,
   topNavBtnClass,
   subNavBtnClass,
+  executionProjects,
+  selectedExecutionProjectId,
+  openExecutionProject,
+  setExecutionFolderId,
 }: SidebarNavGroupsProps) {
   if (screen === "stock") {
     return (
-      <nav className="grid gap-1.5 overflow-y-auto pr-0.5">
+      <nav className="grid gap-1.5 overflow-y-auto pr-0.5" aria-label="Stock navigation">
         <button
           className={topNavBtnClass(true)}
           onClick={() => {
@@ -88,8 +97,59 @@ export function SidebarNavGroups({
           }}
         >
           <Warehouse size={19} strokeWidth={1.8} className="shrink-0" />
-          {!sidebarCollapsed && <span>Stock</span>}
+          {!sidebarCollapsed && <span>Stock Inventory</span>}
         </button>
+      </nav>
+    );
+  }
+
+  if (
+    screen === "execution-projects" ||
+    screen === "execution-project-detail" ||
+    screen === "execution-workspace"
+  ) {
+    return (
+      <nav className="grid gap-1.5 overflow-y-auto pr-0.5" aria-label="Execution navigation">
+        <PermissionGate permission={WORKSPACE_PERMISSIONS.VIEW_EXECUTION_PROJECTS}>
+          <button
+            className={topNavBtnClass(true)}
+            onClick={() => {
+              setExecutionFolderId?.(null);
+              setScreen("execution-projects");
+            }}
+          >
+            <FolderKanban size={19} strokeWidth={1.8} className="shrink-0" />
+            {!sidebarCollapsed && <span>Projects Under Execution</span>}
+          </button>
+          {!sidebarCollapsed && (
+            <div className="grid gap-1 my-1 ml-4 pl-3 border-l-2 border-[#E3E8EF]">
+              <button
+                className={subNavBtnClass(screen === "execution-projects")}
+                onClick={() => {
+                  setExecutionFolderId?.(null);
+                  setScreen("execution-projects");
+                }}
+              >
+                <span>All Projects</span>
+              </button>
+              {executionProjects &&
+                executionProjects.map((proj) => (
+                  <button
+                    key={proj.id}
+                    className={subNavBtnClass(
+                      screen === "execution-project-detail" && selectedExecutionProjectId === proj.id
+                    )}
+                    onClick={() => {
+                      openExecutionProject?.(proj.id);
+                    }}
+                    title={proj.name}
+                  >
+                    <span className="truncate">{proj.name}</span>
+                  </button>
+                ))}
+            </div>
+          )}
+        </PermissionGate>
       </nav>
     );
   }

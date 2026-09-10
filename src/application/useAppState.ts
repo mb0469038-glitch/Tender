@@ -34,7 +34,7 @@ const cloneProject = (value: Project) => JSON.parse(JSON.stringify(value)) as Pr
 
 export function useAppState() {
   const { permissions } = useSession();
-  const [screen, setScreen] = useState<Screen>("home");
+  const [screen, setScreen] = useState<Screen>("projects");
   const initialSeed = useMemo(() => withTechnalSeed(materialData, assemblyData), []);
   const { materials, setMaterials, assemblies, setAssemblies } = useCatalogItemsState(
     initialSeed.materials,

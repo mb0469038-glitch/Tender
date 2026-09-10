@@ -24,8 +24,11 @@ import type { usePriceBookState } from "../modules/catalog/application/usePriceB
 import type { useModalManager } from "../modules/catalog/application/useModalManager";
 import type { useCanvasInteraction } from "../modules/projects/application/useCanvasInteraction";
 import type { useCanvasTakeoff } from "../modules/projects/application/useCanvasTakeoff";
+import type { useExecutionState } from "../modules/execution/application/useExecutionState";
+import { ExecutionProjectsScreen } from "../modules/execution/ui/ExecutionProjectsScreen";
 
 export type AppScreensProps = {
+  execution?: ReturnType<typeof useExecutionState>;
   screen: Screen;
   activeDatabaseId: string;
   activeAssemblySystem: "technal" | "sidem";
@@ -83,6 +86,7 @@ export type AppScreensProps = {
 };
 
 export function AppScreens({
+  execution,
   screen,
   activeDatabaseId,
   activeAssemblySystem,
@@ -294,6 +298,31 @@ export function AppScreens({
       )}
 
       {screen === "excel" && <ExcelWorkspace />}
+
+      {(screen === "execution-projects" || screen === "execution-project-detail") && execution && (
+        <ExecutionProjectsScreen
+          embedded
+          screen={screen}
+          setScreen={setScreen}
+          executionProjects={execution.executionProjects}
+          selectedExecutionProjectId={execution.selectedExecutionProjectId}
+          executionFolderId={execution.executionFolderId}
+          setExecutionFolderId={execution.setExecutionFolderId}
+          executionNewMenuOpen={execution.executionNewMenuOpen}
+          setExecutionNewMenuOpen={execution.setExecutionNewMenuOpen}
+          newExecutionItemType={execution.newExecutionItemType}
+          setNewExecutionItemType={execution.setNewExecutionItemType}
+          newExecutionItemName={execution.newExecutionItemName}
+          setNewExecutionItemName={execution.setNewExecutionItemName}
+          openModal={modals.openModal}
+          openExecutionProject={execution.openExecutionProject}
+          copyExecutionProject={execution.copyExecutionProject}
+          removeExecutionProject={execution.removeExecutionProject}
+          openExecutionWorkspace={execution.openExecutionWorkspace}
+          createExecutionProjectItem={execution.createExecutionProjectItem}
+          removeExecutionProjectItem={execution.removeExecutionProjectItem}
+        />
+      )}
     </>
   );
 }

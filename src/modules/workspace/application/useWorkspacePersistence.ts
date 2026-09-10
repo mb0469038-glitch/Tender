@@ -126,9 +126,8 @@ export function useWorkspacePersistence({
   const [hydrated, setHydrated] = useState(false);
   const [workspaceSaveStatus, setWorkspaceSaveStatus] = useState<"saving" | "saved" | "error">("saved");
   const [recentWorkspaceSaves, setRecentWorkspaceSaves] = useState<string[]>([]);
-  const workspaceSaveQueue = useRef<Promise<void>>(Promise.resolve());
+  const workspaceSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
   const workspaceSaveVersion = useRef(0);
-  const workspaceRefreshInProgress = useRef(false);
 
   // Initial load effect
   useEffect(() => {
@@ -537,9 +536,9 @@ export function useWorkspacePersistence({
           workspaceGateway
             .fetchRecentSaves()
             .then(setRecentWorkspaceSaves)
-            .catch((error) => console.error("Could not load recent workspace saves.", error));
+            .catch((error: unknown) => console.error("Could not load recent workspace saves.", error));
         })
-        .catch((error) => {
+        .catch((error: unknown) => {
           console.error("Could not save the workspace.", error);
           if (version === workspaceSaveVersion.current) setWorkspaceSaveStatus("error");
         });
@@ -576,11 +575,11 @@ export function useWorkspacePersistence({
       workspaceSaveQueue.current = workspaceSaveQueue.current
         .catch(() => undefined)
         .then(() => persistWorkspaceSnapshot(snapshot))
-        .then((recentSaves) => {
+        .then((recentSaves: any) => {
           if (version === workspaceSaveVersion.current) setWorkspaceSaveStatus("saved");
           if (recentSaves) setRecentWorkspaceSaves(recentSaves);
         })
-        .catch((error) => {
+        .catch((error: unknown) => {
           console.error("Could not save the workspace.", error);
           if (version === workspaceSaveVersion.current) setWorkspaceSaveStatus("error");
         });

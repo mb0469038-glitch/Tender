@@ -1,5 +1,5 @@
-import type { ComponentDatabase, Screen } from "../domain/types";
-import { Building2, ChevronLeft, ChevronRight } from "lucide-react";
+import type { ComponentDatabase, ExecutionProject, Screen } from "../domain/types";
+import { ChevronLeft, ChevronRight, FolderKanban, Layers3, Warehouse } from "lucide-react";
 import { useSidebarResize } from "./sidebar/useSidebarResize";
 import { SidebarWorkspaceStatus } from "./sidebar/SidebarWorkspaceStatus";
 import { SidebarNavGroups } from "./sidebar/SidebarNavGroups";
@@ -26,10 +26,14 @@ export type AppSidebarProps = {
   openNewDatabase: (parent: "technal" | "sidem") => void;
   workspaceSaveStatus: "saved" | "saving" | "error";
   recentWorkspaceSaves: string[];
+  executionProjects?: ExecutionProject[];
+  selectedExecutionProjectId?: string;
+  openExecutionProject?: (id: string) => void;
+  setExecutionFolderId?: (id: string | null) => void;
 };
 
 export function AppSidebar(props: AppSidebarProps) {
-  const { sidebarCollapsed, setSidebarCollapsed, screen, setScreen } = props;
+  const { sidebarCollapsed, setSidebarCollapsed, screen } = props;
   const { width, isDragging, startResizing, resetWidth } = useSidebarResize(sidebarCollapsed);
 
   const topNavBtnClass = (isActive: boolean) =>
@@ -48,11 +52,18 @@ export function AppSidebar(props: AppSidebarProps) {
         : "bg-transparent text-[#475467] hover:bg-[#EDF2F7] hover:text-[#0B1F4D]"
     }`;
 
+  const isExecution =
+    screen === "execution-projects" ||
+    screen === "execution-project-detail" ||
+    screen === "execution-workspace";
+  const isStock = screen === "stock";
+  const isEstimation = !isExecution && !isStock;
+
   return (
     <aside
       style={{ width: `${width}px`, flex: `0 0 ${width}px` }}
-      className={`h-screen relative flex flex-col sticky top-0 bg-[#F8FAFC] border-r border-[#E3E8EF] text-[#172033] transition-[padding] duration-150 ease-in-out select-none ${
-        sidebarCollapsed ? "p-[20px_8px_16px]" : "p-[22px_14px_16px]"
+      className={`h-[calc(100vh-69px)] relative flex flex-col sticky top-[69px] bg-[#F8FAFC] border-r border-[#E3E8EF] text-[#172033] transition-[padding] duration-150 ease-in-out select-none ${
+        sidebarCollapsed ? "p-[16px_8px_16px]" : "p-[18px_14px_16px]"
       }`}
     >
       {/* Resizer Handle */}
@@ -70,25 +81,28 @@ export function AppSidebar(props: AppSidebarProps) {
       )}
 
       {/* Brand Header */}
-      <div className="flex items-center justify-between gap-2 pb-5 mb-2 border-b border-[#E3E8EF]">
-        <button
-          className="flex items-center gap-2.5 border-0 bg-transparent text-left cursor-pointer p-1 rounded-md hover:bg-[#EDF2F7] transition-colors"
-          type="button"
-          onClick={() => setScreen("home")}
-          aria-label="Return to AMA services"
-        >
-          <div className="grid place-items-center w-9 h-9 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-[#165BAA] shrink-0">
-            <Building2 size={20} strokeWidth={2} />
+      <div className="flex items-center justify-between gap-2 pb-4 mb-2 border-b border-[#E3E8EF]">
+        <div className="flex items-center gap-2.5 min-w-0 p-1">
+          <div className="grid place-items-center w-8.5 h-8.5 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-[#165BAA] shrink-0">
+            {isExecution ? (
+              <FolderKanban size={18} strokeWidth={2} />
+            ) : isStock ? (
+              <Warehouse size={18} strokeWidth={2} />
+            ) : (
+              <Layers3 size={18} strokeWidth={2} />
+            )}
           </div>
           {!sidebarCollapsed && (
             <div className="min-w-0">
-              <div className="text-[17px] font-black tracking-tight text-[#0B1F4D] leading-none">AMA</div>
-              <div className="text-[12.5px] font-semibold text-[#165BAA] leading-none mt-1">
-                {screen === "stock" ? "Stock Service" : "Estimation"}
+              <div className="text-[15px] font-black tracking-tight text-[#0B1F4D] leading-none">
+                {isExecution ? "Execution" : isStock ? "Stock" : "Estimation"}
+              </div>
+              <div className="text-[11.5px] font-semibold text-[#165BAA] leading-none mt-1 truncate">
+                Workspace Drawer
               </div>
             </div>
           )}
-        </button>
+        </div>
 
         {/* Collapse Toggle */}
         <button
@@ -113,7 +127,7 @@ export function AppSidebar(props: AppSidebarProps) {
       />
 
       {/* Workspace Status & Recent Saves */}
-      {screen !== "stock" && (
+      {isEstimation && (
         <SidebarWorkspaceStatus
           workspaceSaveStatus={props.workspaceSaveStatus}
           recentWorkspaceSaves={props.recentWorkspaceSaves}

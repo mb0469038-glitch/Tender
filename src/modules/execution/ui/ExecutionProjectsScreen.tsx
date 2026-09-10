@@ -23,6 +23,7 @@ type ExecutionProjectsScreenProps = {
   openExecutionWorkspace: (fileId: string) => void;
   createExecutionProjectItem: (event: FormEvent) => void;
   removeExecutionProjectItem: (id: string) => void;
+  embedded?: boolean;
 };
 
 export function ExecutionProjectsScreen({
@@ -45,6 +46,7 @@ export function ExecutionProjectsScreen({
   openExecutionWorkspace,
   createExecutionProjectItem,
   removeExecutionProjectItem,
+  embedded = false,
 }: ExecutionProjectsScreenProps) {
   const project = executionProjects.find((item) => item.id === selectedExecutionProjectId);
 
@@ -284,6 +286,80 @@ export function ExecutionProjectsScreen({
       </>
     );
   };
+
+  if (embedded) {
+    return (
+      <div className="min-w-0 flex-1 bg-[#F8FAFC]">
+        <main>{screen === "execution-project-detail" ? <ExecutionProjectFiles /> : <ExecutionProjects />}</main>
+        {newExecutionItemType && (
+          <div
+            className="fixed inset-0 z-50 grid place-items-center p-6 bg-[#0f282a8c]"
+            onMouseDown={() => setNewExecutionItemType(null)}
+          >
+            <section
+              className="w-[min(460px,100%)] rounded-[13px] bg-white shadow-[0_25px_75px_#00000047]"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="new-project-item-title"
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-[20px_25px] border-b border-[#e3ebeb]">
+                <div>
+                  <p className="m-0 mb-1.5 text-[#23736f] text-[11px] font-extrabold uppercase tracking-[0.09em]">
+                    Project files
+                  </p>
+                  <h2 id="new-project-item-title" className="m-0 text-[#1a3539] text-[21px] font-bold">
+                    {newExecutionItemType === "folder" ? "New folder" : "New optimization file"}
+                  </h2>
+                </div>
+                <button
+                  className="grid place-items-center w-8 h-8 p-0 border border-[#cbd9db] rounded-md bg-transparent text-[#4c696d] hover:bg-[#edf4f4] cursor-pointer"
+                  type="button"
+                  onClick={() => setNewExecutionItemType(null)}
+                  aria-label="Close"
+                >
+                  <Icon name="close" />
+                </button>
+              </div>
+              <form onSubmit={createExecutionProjectItem}>
+                <div className="grid gap-[15px] p-[25px]">
+                  <label className="grid gap-1.5 text-[#4c696d] text-xs font-[750]">
+                    <span>
+                      {newExecutionItemType === "folder" ? "Folder" : "Optimization and material-order file"} name{" "}
+                      <span className="text-[#b73030]">*</span>
+                    </span>
+                    <input
+                      className="w-full h-[39px] px-2.5 border border-[#cbd9db] rounded-md bg-white text-[#19363a] text-sm focus:border-[#27827d] focus:outline-none"
+                      autoFocus
+                      required
+                      value={newExecutionItemName}
+                      onChange={(event) => setNewExecutionItemName(event.target.value)}
+                      onFocus={(event) => event.currentTarget.select()}
+                    />
+                  </label>
+                </div>
+                <div className="flex items-center justify-end gap-[9px] p-[20px_25px] border-t border-[#e3ebeb]">
+                  <button
+                    className="min-h-[42px] inline-flex items-center justify-center gap-2 px-4 rounded-[8px] font-bold border border-[#cad9da] bg-white text-[#345156] hover:bg-[#f0f6f6] cursor-pointer transition-colors"
+                    type="button"
+                    onClick={() => setNewExecutionItemType(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="min-h-[42px] inline-flex items-center justify-center gap-2 px-4 rounded-[8px] font-bold border border-[#146c68] bg-[#176f6b] text-white shadow-[0_2px_5px_#164e4d2e] hover:bg-[#105d59] cursor-pointer transition-colors"
+                    type="submit"
+                  >
+                    Create
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[#f5f7f8]">
