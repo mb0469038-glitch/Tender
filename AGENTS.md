@@ -116,3 +116,21 @@ Before completing any task or editing code, verify:
   * **Never restart or rebuild Docker containers** for local frontend development.
   * Rely on **Vite Hot Module Replacement (HMR)** so all frontend changes in `src/` appear instantly in milliseconds without browser reloads or container reboots.
   * Ensure the local Vite dev server proxies `/api/*` to the cloud backend (`http://213.199.37.145`) so authentication, database, and workspace persistence work immediately on localhost.
+
+---
+
+## 9. Iconography Rules (Lucide Icons)
+
+* **Whenever UI components require icons:** Default to **Lucide Icons** (`lucide-react`).
+* **Visual Consistency:** Maintain crisp technical outline styling:
+  * Default: `strokeWidth={1.8}` with `size={20}` or `size={22}`.
+  * Subtle/Micro: `size={16}` for inline badges or table indicators.
+* **Architectural Semantics:**
+  * Projects / Buildings: `<Building2 />`
+  * Façades / Systems: `<Layers3 />`
+  * Engineering / Design: `<Ruler />`
+  * Fabrication: `<Factory />`
+  * Installation / Tools: `<Wrench />`
+  * Quality / Certifications: `<ShieldCheck />`
+  * Documents / Tenders: `<FileText />`
+* **Hierarchy:** Lucide is the primary standard for the public AMA architectural experience; Tabler is approved for deep internal ERP/data grids. Avoid heavy or filled icon sets.

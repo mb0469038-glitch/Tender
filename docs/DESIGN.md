@@ -129,3 +129,60 @@ module.exports = {
   },
 };
 ```
+
+---
+
+## 5. Iconography Standards (Lucide Icons)
+
+When the UI or design requires icons, use **Lucide Icons** (`lucide-react`).
+
+### Design & Visual Fit
+* **Style:** Modern, minimal, clean, technical, architectural with a consistent, crisp outline aesthetic.
+* **Stroke Width:** `strokeWidth={1.8}` (or `1.5`–`1.8` for ultra-clean technical precision).
+* **Standard Size:** `size={20}` or `size={22}` for standard actions; `size={16}` for inline badges/helpers.
+
+### Installation
+```bash
+npm install lucide-react
+```
+
+### Usage Example
+```tsx
+import {
+  Building2,
+  Ruler,
+  Layers3,
+  Factory,
+  Wrench,
+  ShieldCheck,
+  Phone,
+  Mail,
+  MapPin,
+  FileText,
+  Users
+} from "lucide-react";
+
+<Building2 size={22} strokeWidth={1.8} className="text-[#0B1F4D]" />
+```
+
+### Recommended AMA Domain Icon Mappings
+
+| Icon | Purpose / Semantic Area |
+|---|---|
+| `<Building2 />` | Projects, construction, developments |
+| `<Layers3 />` | Façades, building envelope systems, cladding |
+| `<Ruler />` | Engineering, architectural design, takeoffs |
+| `<Factory />` | Fabrication, plant operations, manufacturing |
+| `<Wrench />` | Installation, on-site assembly, maintenance |
+| `<ShieldCheck />` | Quality assurance, compliance, structural certifications |
+| `<FileText />` | Tenders, BOQs, estimation docs, specs |
+| `<Users />` | Team, project managers, engineering personnel |
+| `<MapPin />` | Site locations, regional branches |
+| `<Phone />` / `<Mail />` | Client contacts, communication channels |
+
+### Icon Library Ranking
+1. **Lucide Icons (`lucide-react`)** — **Best overall** for the public AMA architectural website.
+2. **Phosphor Icons** — Slightly more stylish and expressive.
+3. **Tabler Icons** — Very clean, excellent for internal ERP & deep data dashboards.
+4. **Heroicons** — Clean if tightly coupling with Tailwind CSS primitives.
+5. **Font Awesome** — Massive library, but visually heavier and less architectural.
