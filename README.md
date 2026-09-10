@@ -24,6 +24,7 @@ Then open your browser at **[http://localhost](http://localhost)**.
 ## 🏗 Architecture & Documentation
 
 - **[Running Locally Guide](docs/RUNNING_LOCALLY.md)**: Easy, step-by-step guide for non-technical users and AI agents.
+- **[Contabo Server & Cloud Deployment Guide](docs/CONTABO_SERVER.md)**: Specifications, credentials, and deployment setup for the Contabo Ubuntu VPS.
 - **[Architecture Overview](docs/architecture/OVERVIEW.md)**: Decomposed modular monolith structure, clean architecture layers, and Docker container breakdown.
 - **[Architectural Rules for AI Agents](AGENTS.md)**: Rules ensuring zero code density, strict separation of concerns, and anti-bloat ceilings.
 - **[RBAC & Permissions](docs/architecture/RBAC.md)**: Roles and permissions security model.

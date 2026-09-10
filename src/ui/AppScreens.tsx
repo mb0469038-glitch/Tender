@@ -19,6 +19,7 @@ import { AssemblyLibrary } from "../modules/catalog/ui/AssemblyLibrary";
 import { ProjectsScreen } from "../modules/projects/ui/ProjectsScreen";
 import { CanvasScreen } from "../modules/projects/ui/CanvasScreen";
 import { ExcelWorkspace } from "../modules/workspace/ui/ExcelWorkspace";
+import { getTableStyle } from "../modules/catalog/domain/tableStyles";
 import type { usePriceBookState } from "../modules/catalog/application/usePriceBookState";
 import type { useModalManager } from "../modules/catalog/application/useModalManager";
 import type { useCanvasInteraction } from "../modules/projects/application/useCanvasInteraction";
@@ -137,6 +138,8 @@ export function AppScreens({
   canvasInteraction,
   takeoff,
 }: AppScreensProps) {
+  const tableStyle = getTableStyle(priceBook.tableZoom, activeDatabaseId === "glass") as React.CSSProperties;
+
   return (
     <>
       {(screen === "database" || screen === "stock") &&
@@ -162,7 +165,7 @@ export function AppScreens({
             openModal={modals.openModal}
             tableZoom={priceBook.tableZoom}
             zoomTable={priceBook.zoomTable}
-            tableStyle={{}}
+            tableStyle={tableStyle}
             search={search}
             setSearch={setSearch}
             assemblyTypeFilter={assemblyTypeFilter}
@@ -233,7 +236,7 @@ export function AppScreens({
             search={search}
             setSearch={setSearch}
             tableZoom={priceBook.tableZoom}
-            tableStyle={{}}
+            tableStyle={tableStyle}
             zoomTable={priceBook.zoomTable}
             materialView={materialView}
             setMaterialView={setMaterialView}
