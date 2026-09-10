@@ -39,25 +39,25 @@ export function SidebarWorkspaceStatus({
 
   return (
     <div className="mt-auto pt-3 border-t border-[#E3E8EF]">
-      <div className="p-2.5 bg-white border border-[#E3E8EF] rounded-[10px] shadow-[0_1px_3px_rgba(11,31,77,0.04)]">
+      <div className="p-3 bg-white border border-[#E3E8EF] rounded-[10px] shadow-[0_1px_3px_rgba(11,31,77,0.04)]">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2.5 min-w-0">
             {workspaceSaveStatus === "saving" ? (
-              <RefreshCw size={15} strokeWidth={2} className="text-[#2D8ACD] animate-spin shrink-0" />
+              <RefreshCw size={16} strokeWidth={2} className="text-[#2D8ACD] animate-spin shrink-0" />
             ) : workspaceSaveStatus === "error" ? (
-              <AlertCircle size={15} strokeWidth={2} className="text-rose-500 shrink-0" />
+              <AlertCircle size={16} strokeWidth={2} className="text-rose-500 shrink-0" />
             ) : (
-              <CheckCircle2 size={15} strokeWidth={2} className="text-emerald-500 shrink-0" />
+              <CheckCircle2 size={16} strokeWidth={2} className="text-emerald-500 shrink-0" />
             )}
             <div className="min-w-0">
-              <div className="text-[12px] font-semibold text-[#172033] leading-tight truncate">
+              <div className="text-[13.5px] font-bold text-[#172033] leading-tight truncate">
                 {workspaceSaveStatus === "saving"
                   ? "Saving changes…"
                   : workspaceSaveStatus === "error"
                   ? "Save failed"
                   : "Workspace Synced"}
               </div>
-              <div className="text-[10px] text-[#667085] leading-tight truncate mt-0.5">
+              <div className="text-[12px] text-[#667085] leading-tight truncate mt-0.5">
                 Local & Cloud persistence
               </div>
             </div>
@@ -72,7 +72,7 @@ export function SidebarWorkspaceStatus({
               aria-expanded={historyOpen}
             >
               <ChevronDown
-                size={14}
+                size={15}
                 strokeWidth={2}
                 className={`transition-transform duration-200 ${historyOpen ? "rotate-180" : ""}`}
               />
@@ -81,17 +81,17 @@ export function SidebarWorkspaceStatus({
         </div>
 
         {historyOpen && recentWorkspaceSaves.length > 0 && (
-          <div className="mt-2 pt-2 border-t border-[#E3E8EF] space-y-1 max-h-28 overflow-y-auto pr-1">
-            <div className="text-[10px] font-semibold tracking-wider uppercase text-[#667085] flex items-center gap-1 mb-1">
-              <Clock size={11} strokeWidth={1.8} /> Recent Saves
+          <div className="mt-2.5 pt-2.5 border-t border-[#E3E8EF] space-y-1 max-h-32 overflow-y-auto pr-1">
+            <div className="text-[11px] font-semibold tracking-wider uppercase text-[#667085] flex items-center gap-1.5 mb-1">
+              <Clock size={12} strokeWidth={1.8} /> Recent Saves
             </div>
             {recentWorkspaceSaves.slice(0, 5).map((save, idx) => (
               <div
                 key={`${save}-${idx}`}
-                className="text-[10px] text-[#475467] font-mono flex items-center justify-between py-0.5"
+                className="text-[11.5px] text-[#475467] font-mono flex items-center justify-between py-0.5"
               >
                 <span className="text-[#98A2B3]">#{idx + 1}</span>
-                <span className="truncate ml-1.5">{save}</span>
+                <span className="truncate ml-2">{save}</span>
               </div>
             ))}
           </div>

@@ -134,3 +134,12 @@ Before completing any task or editing code, verify:
   * Quality / Certifications: `<ShieldCheck />`
   * Documents / Tenders: `<FileText />`
 * **Hierarchy:** Lucide is the primary standard for the public AMA architectural experience; Tabler is approved for deep internal ERP/data grids. Avoid heavy or filled icon sets.
+
+---
+
+## 10. Strict Git & Deployment Control Rule (Zero Auto-Commit / Auto-Push / Auto-Deploy)
+
+* **NEVER run `git commit` or `git push`** unless the user explicitly and clearly requests it (e.g. "commit changes", "push to git").
+* **NEVER deploy, scp, or upload files to the remote server** (`213.199.37.145`) unless the user explicitly and clearly instructs you to deploy (e.g. "deploy to server", "upload to live server").
+* Keep all code edits within the local development environment (`localhost:1420` via HMR) so the user can review and approve changes locally first.
+

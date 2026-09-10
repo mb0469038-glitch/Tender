@@ -33,8 +33,8 @@ export function AppSidebar(props: AppSidebarProps) {
   const { width, isDragging, startResizing, resetWidth } = useSidebarResize(sidebarCollapsed);
 
   const topNavBtnClass = (isActive: boolean) =>
-    `group flex items-center gap-2.5 w-full border-0 rounded-[8px] text-left text-[13px] font-semibold cursor-pointer transition-all duration-150 ${
-      sidebarCollapsed ? "justify-center p-2.5" : "px-3 py-2"
+    `group flex items-center gap-3 w-full border-0 rounded-[8px] text-left text-[15px] font-bold cursor-pointer transition-all duration-150 ${
+      sidebarCollapsed ? "justify-center p-2.5" : "px-3.5 py-2.5"
     } ${
       isActive
         ? "bg-[#0B1F4D] text-white shadow-[0_1px_3px_rgba(11,31,77,0.16)]"
@@ -42,7 +42,7 @@ export function AppSidebar(props: AppSidebarProps) {
     }`;
 
   const subNavBtnClass = (isActive: boolean) =>
-    `flex items-center min-h-[28px] px-2.5 py-1 border-0 rounded-[6px] text-left text-[12px] cursor-pointer transition-all duration-150 ${
+    `flex items-center min-h-[30px] px-3 py-1.5 border-0 rounded-[6px] text-left text-[13.5px] font-medium cursor-pointer transition-all duration-150 ${
       isActive
         ? "bg-[#165BAA] text-white font-semibold shadow-[0_1px_2px_rgba(22,91,170,0.18)]"
         : "bg-transparent text-[#475467] hover:bg-[#EDF2F7] hover:text-[#0B1F4D]"
@@ -77,13 +77,13 @@ export function AppSidebar(props: AppSidebarProps) {
           onClick={() => setScreen("home")}
           aria-label="Return to AMA services"
         >
-          <div className="grid place-items-center w-8 h-8 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-[#165BAA] shrink-0">
-            <Building2 size={18} strokeWidth={2} />
+          <div className="grid place-items-center w-9 h-9 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] text-[#165BAA] shrink-0">
+            <Building2 size={20} strokeWidth={2} />
           </div>
           {!sidebarCollapsed && (
             <div className="min-w-0">
-              <div className="text-[14px] font-black tracking-tight text-[#0B1F4D] leading-none">AMA</div>
-              <div className="text-[11px] font-semibold text-[#165BAA] leading-none mt-1">
+              <div className="text-[17px] font-black tracking-tight text-[#0B1F4D] leading-none">AMA</div>
+              <div className="text-[12.5px] font-semibold text-[#165BAA] leading-none mt-1">
                 {screen === "stock" ? "Stock Service" : "Estimation"}
               </div>
             </div>

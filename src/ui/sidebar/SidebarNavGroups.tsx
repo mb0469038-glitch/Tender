@@ -79,7 +79,7 @@ export function SidebarNavGroups({
 }: SidebarNavGroupsProps) {
   if (screen === "stock") {
     return (
-      <nav className="grid gap-1 overflow-y-auto pr-0.5">
+      <nav className="grid gap-1.5 overflow-y-auto pr-0.5">
         <button
           className={topNavBtnClass(true)}
           onClick={() => {
@@ -87,7 +87,7 @@ export function SidebarNavGroups({
             setScreen("stock");
           }}
         >
-          <Warehouse size={17} strokeWidth={1.8} className="shrink-0" />
+          <Warehouse size={19} strokeWidth={1.8} className="shrink-0" />
           {!sidebarCollapsed && <span>Stock</span>}
         </button>
       </nav>
@@ -95,7 +95,7 @@ export function SidebarNavGroups({
   }
 
   return (
-    <nav className="grid gap-1 overflow-y-auto pr-0.5">
+    <nav className="grid gap-1.5 overflow-y-auto pr-0.5">
       {/* Projects */}
       <PermissionGate permission={WORKSPACE_PERMISSIONS.VIEW_PROJECTS}>
         <button
@@ -106,11 +106,11 @@ export function SidebarNavGroups({
           }}
           aria-expanded={projectsOpen}
         >
-          <Building2 size={17} strokeWidth={1.8} className="shrink-0 text-inherit" />
+          <Building2 size={19} strokeWidth={1.8} className="shrink-0 text-inherit" />
           {!sidebarCollapsed && <span>Projects</span>}
           {!sidebarCollapsed && (
             <ChevronDown
-              size={14}
+              size={15}
               strokeWidth={2}
               className={`ml-auto text-[#98A2B3] group-hover:text-inherit transition-transform duration-200 ${
                 projectsOpen ? "rotate-180" : ""
@@ -119,7 +119,7 @@ export function SidebarNavGroups({
           )}
         </button>
         {projectsOpen && !sidebarCollapsed && (
-          <div className="grid gap-0.5 my-1 ml-3.5 pl-2.5 border-l-2 border-[#E3E8EF]">
+          <div className="grid gap-1 my-1 ml-4 pl-3 border-l-2 border-[#E3E8EF]">
             {projectYears.map((year) => (
               <button
                 key={year}
@@ -148,11 +148,11 @@ export function SidebarNavGroups({
           }}
           aria-expanded={databaseOpen}
         >
-          <Database size={17} strokeWidth={1.8} className="shrink-0 text-inherit" />
+          <Database size={19} strokeWidth={1.8} className="shrink-0 text-inherit" />
           {!sidebarCollapsed && <span>Database</span>}
           {!sidebarCollapsed && (
             <ChevronDown
-              size={14}
+              size={15}
               strokeWidth={2}
               className={`ml-auto text-[#98A2B3] group-hover:text-inherit transition-transform duration-200 ${
                 databaseOpen ? "rotate-180" : ""
@@ -161,7 +161,7 @@ export function SidebarNavGroups({
           )}
         </button>
         {databaseOpen && !sidebarCollapsed && (
-          <div className="grid gap-0.5 my-1 ml-3.5 pl-2.5 border-l-2 border-[#E3E8EF]">
+          <div className="grid gap-1 my-1 ml-4 pl-3 border-l-2 border-[#E3E8EF]">
             {DATABASE_NAV_ITEMS.map((item) => (
               <button
                 key={item.id}
@@ -188,11 +188,11 @@ export function SidebarNavGroups({
           }}
           aria-expanded={assembliesOpen}
         >
-          <Layers3 size={17} strokeWidth={1.8} className="shrink-0 text-inherit" />
+          <Layers3 size={19} strokeWidth={1.8} className="shrink-0 text-inherit" />
           {!sidebarCollapsed && <span>Assemblies</span>}
           {!sidebarCollapsed && (
             <ChevronDown
-              size={14}
+              size={15}
               strokeWidth={2}
               className={`ml-auto text-[#98A2B3] group-hover:text-inherit transition-transform duration-200 ${
                 assembliesOpen ? "rotate-180" : ""
@@ -201,11 +201,13 @@ export function SidebarNavGroups({
           )}
         </button>
         {assembliesOpen && !sidebarCollapsed && (
-          <div className="grid gap-0.5 my-1 ml-3.5 pl-2.5 border-l-2 border-[#E3E8EF]">
+          <div className="grid gap-1 my-1 ml-4 pl-3 border-l-2 border-[#E3E8EF]">
             {TECHNAL_NAV_ITEMS.map((item) => (
               <button
                 key={item.id}
-                className={subNavBtnClass(screen === "assemblies" && activeDatabaseId === item.id)}
+                className={subNavBtnClass(
+                  screen === "assemblies" && activeDatabaseId === item.id
+                )}
                 onClick={() => {
                   setActiveAssemblySystem("technal");
                   setActiveDatabaseId(item.id);
@@ -230,17 +232,17 @@ export function SidebarNavGroups({
                 <span>Sidem</span>
               </button>
               <button
-                className="grid place-items-center w-6 h-6 p-0 border border-[#E3E8EF] rounded-md bg-white text-[#165BAA] hover:bg-[#165BAA] hover:text-white hover:border-[#165BAA] cursor-pointer transition-all shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+                className="grid place-items-center w-6.5 h-6.5 p-0 border border-[#E3E8EF] rounded-md bg-white text-[#165BAA] hover:bg-[#165BAA] hover:text-white hover:border-[#165BAA] cursor-pointer transition-all shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
                 onClick={() => openNewDatabase("sidem")}
                 aria-label="Add Sidem assembly database"
                 title="Add Sidem assembly database"
               >
-                <Plus size={13} strokeWidth={2.2} />
+                <Plus size={14} strokeWidth={2.2} />
               </button>
             </div>
 
             {componentDatabases.filter((item) => item.parent === "sidem").length > 0 && (
-              <div className="grid gap-0.5 my-1 ml-2.5 pl-2 border-l border-[#E3E8EF]">
+              <div className="grid gap-1 my-1 ml-3 pl-2.5 border-l border-[#E3E8EF]">
                 {componentDatabases
                   .filter((item) => item.parent === "sidem")
                   .map((database) => (
@@ -272,7 +274,7 @@ export function SidebarNavGroups({
           className={topNavBtnClass(screen === "excel")}
           onClick={() => setScreen("excel")}
         >
-          <FileSpreadsheet size={17} strokeWidth={1.8} className="shrink-0 text-inherit" />
+          <FileSpreadsheet size={19} strokeWidth={1.8} className="shrink-0 text-inherit" />
           {!sidebarCollapsed && <span>Excel</span>}
         </button>
       </PermissionGate>
