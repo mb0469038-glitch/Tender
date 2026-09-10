@@ -4,11 +4,23 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tauri + React + Typescript</title>
+    <title>TenderStudio — Estimation & Catalogs</title>
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 2%, #e9f8fd 0%, #f7fbfd 43%, #e8f2f5 100%); font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #133c3e; padding: 24px; text-align: center;">
+        <div style="width: 52px; height: 52px; border: 4px solid #cad9da; border-top-color: #176f6b; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;"></div>
+        <div style="font-weight: 800; font-size: 22px; letter-spacing: -0.02em; margin-bottom: 8px; color: #133c3e;">TenderStudio</div>
+        <div style="color: #4a6367; font-size: 14px; font-weight: 500; margin-bottom: 4px;">Loading application resources…</div>
+        <div style="color: #7b9498; font-size: 12px;">First load caches components for high-speed offline performance.</div>
+        <style>
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        </style>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

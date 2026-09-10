@@ -1,3 +1,4 @@
+import fs from "fs";
 import pg from "pg";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
@@ -142,6 +143,22 @@ export async function runMigrations() {
         [adminUserId, ADMIN_ROLE_ID]
       );
       console.log("Initialized default Administrator user ('admin' / 'admin123').");
+    }
+
+    // 6. Seed workspace snapshot from snapshot.json if empty
+    const snapCountRes = await client.query("SELECT COUNT(*) FROM workspace_snapshot WHERE id = 'current'");
+    if (parseInt(snapCountRes.rows[0].count, 10) === 0) {
+      const snapPath = "./snapshot.json";
+      if (fs.existsSync(snapPath)) {
+        const snapContent = fs.readFileSync(snapPath, "utf-8");
+        await client.query(
+          `INSERT INTO workspace_snapshot (id, value, updated_at)
+           VALUES ('current', $1, NOW())
+           ON CONFLICT (id) DO NOTHING`,
+          [snapContent]
+        );
+        console.log("Seeded initial workspace snapshot from snapshot.json.");
+      }
     }
 
     await client.query("COMMIT");

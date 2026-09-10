@@ -18,29 +18,34 @@ This document records the hardware specifications, access credentials, and initi
 | **Storage** | 100 GB SSD |
 | **Network Bandwidth** | Unlimited Traffic (Fair Use Policy) |
 | **Port Speed** | 200 Mbit/s port |
-| **IPv4 Address** | 1 Dedicated Public IP *(Assigned upon delivery in Contabo email)* |
+| **IPv4 Address** | `213.199.37.145` (Dedicated Public IP) |
 | **Snapshots** | 1 Included Snapshot |
 | **Private Networking** | None (Disabled / Free) |
 
 ---
 
-## 2. 🔑 Access Credentials
+## 2. 🔑 Access Credentials & SSH Key Authentication
 
-> [!CAUTION]
-> Keep these credentials safe! For maximum security, change the default root password after your first login and configure SSH Key-Based Authentication.
+> [!TIP]
+> **AI / Direct SSH Key Authentication Configured:**
+> An `ed25519` key has been generated at `~/.ssh/id_ed25519` and installed onto the server's `/root/.ssh/authorized_keys`.
+> SSH alias `contabo` is configured in `~/.ssh/config`. You can now connect without password prompts.
 
+* **Server IP:** `213.199.37.145`
 * **Default Username:** `root`
-* **Default Root Password:** `M0ckermrx909`
+* **Default Root Password:** `M0ckermrx909` (Backup only — use SSH Key)
 * **SSH Port:** `22` (default)
+* **SSH Client Key:** `~/.ssh/id_ed25519`
 
-### Connecting to the Server
+### Connecting to the Server (Passwordless via SSH Key)
 
-Once Contabo sends your server IP address via email (e.g. `123.45.67.89`):
+From PowerShell or any terminal:
 
 ```bash
-ssh root@<YOUR_SERVER_IP>
+ssh contabo
+# or directly:
+ssh root@213.199.37.145
 ```
-*When prompted, paste the password: `M0ckermrx909`*
 
 ---
 
@@ -111,7 +116,9 @@ cd /opt/tenderstudio
 
 *(Alternatively, if copying from your local Windows machine via PowerShell:)*
 ```powershell
-scp -r c:\Users\mosta\Documents\TenderLastest root@<YOUR_SERVER_IP>:/opt/tenderstudio
+scp -r c:\Users\mosta\Documents\TenderLastest root@213.199.37.145:/opt/tenderstudio
+# or using ssh alias:
+scp -r c:\Users\mosta\Documents\TenderLastest contabo:/opt/tenderstudio
 ```
 
 ### Step 2: Configure Environment Variables
@@ -136,7 +143,7 @@ docker ps
 
 ### Step 5: Access the Application
 Open your browser and navigate to:
-👉 **`http://<YOUR_SERVER_IP>`**
+👉 **`http://213.199.37.145`**
 
 * **Default Admin Username:** `admin`
 * **Default Admin Password:** `admin123`

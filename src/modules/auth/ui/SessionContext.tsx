@@ -20,12 +20,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    authService.getCurrentSession().then((session) => {
-      if (!cancelled) {
-        setUser(session);
-        setIsLoading(false);
-      }
-    });
+    authService
+      .getCurrentSession()
+      .then((session) => {
+        if (!cancelled) {
+          setUser(session);
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not retrieve current session:", err);
+        if (!cancelled) {
+          setUser(null);
+          setIsLoading(false);
+        }
+      });
     return () => {
       cancelled = true;
     };
