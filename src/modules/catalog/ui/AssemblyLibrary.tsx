@@ -76,14 +76,23 @@ export function AssemblyLibrary({
 
   return (
     <>
-      <section className="page-heading">
+      <section className="flex items-end justify-between gap-6 p-[41px_48px_27px] max-[700px]:flex-col max-[700px]:items-start max-[700px]:px-5 max-[700px]:pt-8">
         <div>
-          <p className="eyebrow">Assemblies / {assemblyCategoryName}</p>
-          <h1>{assemblyCategoryName} assemblies</h1>
-          <p className="intro">Reusable technical components that calculate material quantities from their formulas.</p>
+          <p className="m-0 mb-1.5 text-[#23736f] text-[11px] font-extrabold uppercase tracking-[0.09em]">
+            Assemblies / {assemblyCategoryName}
+          </p>
+          <h1 className="m-0 text-[#11262a] text-[36px] font-bold tracking-[-0.035em]">
+            {assemblyCategoryName} assemblies
+          </h1>
+          <p className="max-w-[650px] mt-2.5 mb-0 text-[#5e7478] text-[15px] leading-relaxed">
+            Reusable technical components that calculate material quantities from their formulas.
+          </p>
         </div>
         <PermissionGate permission={WORKSPACE_PERMISSIONS.CREATE_ASSEMBLY}>
-          <button className="primary-button" onClick={() => openModal("assembly")}>
+          <button
+            className="min-h-[42px] inline-flex items-center justify-center gap-2 px-4 rounded-[8px] font-bold border border-[#146c68] bg-[#176f6b] text-white shadow-[0_2px_5px_#164e4d2e] hover:bg-[#105d59] cursor-pointer transition-colors"
+            onClick={() => openModal("assembly")}
+          >
             <Icon name="plus" />{" "}
             {isTwoRailWindowPage || isFlyScreenPage || isHingeWindowPage || isFixedWindowPage || isTiltAndTurnPage
               ? "Add type"
@@ -91,39 +100,49 @@ export function AssemblyLibrary({
           </button>
         </PermissionGate>
       </section>
-      <section className="library-panel">
-        <div className="toolbar">
-          <label className="search-field">
+      <section className="mx-12 mb-9 p-[18px] border border-[#dfe8e8] rounded-[13px] bg-white shadow-[0_8px_27px_#183f4110] max-[700px]:mx-5">
+        <div className="flex items-center justify-between gap-4 pb-[18px] flex-wrap">
+          <label className="w-[min(330px,100%)] h-10 flex items-center gap-2 px-3 border border-[#d5e0e1] rounded-[7px] text-[#698086] focus-within:border-[#27827d]">
             <Icon name="search" size={17} />
             <span className="sr-only">Search assemblies</span>
             <input
+              className="w-full border-0 outline-none bg-transparent text-[#18363a] text-sm"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search assemblies"
             />
           </label>
-          <span className="item-count">{systemAssemblies.length} assemblies</span>
+          <span className="text-[#687d81] text-[13px]">{systemAssemblies.length} assemblies</span>
         </div>
         <div
-          className={`material-grid ${
+          className={`grid gap-4 ${
             isTwoRailWindowPage || isFlyScreenPage || isHingeWindowPage || isFixedWindowPage || isTiltAndTurnPage
-              ? "assembly-type-grid"
-              : ""
+              ? "grid-cols-[repeat(2,minmax(260px,1fr))] max-[700px]:grid-cols-1"
+              : "grid-cols-[repeat(auto-fill,minmax(225px,1fr))]"
           }`}
         >
           {systemAssemblies.map((assembly) => (
-            <article className="material-card" key={assembly.id}>
-              <div className="card-art">
+            <article
+              className="min-h-[270px] overflow-hidden border border-[#dfe7e8] rounded-[10px] bg-white text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-[#8dbdb8] hover:shadow-[0_9px_20px_#17424419] flex flex-col"
+              key={assembly.id}
+            >
+              <div className="h-[125px] w-full bg-[#f7fbfa] flex items-center justify-center overflow-hidden border-b border-[#edf3f3]">
                 <Sketch path={assembly.sketch} label={assembly.name} />
               </div>
-              <div className="card-content">
-                <h2>{assembly.name}</h2>
-                <div className="card-actions">
-                  <button onClick={() => openModal("assembly", assembly.id)}>
+              <div className="p-[15px] flex-1 flex flex-col justify-between">
+                <h2 className="m-0 text-[#173a3f] text-[16px] font-bold">{assembly.name}</h2>
+                <div className="flex gap-1.5 mt-3">
+                  <button
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 border border-[#d2dfdf] rounded-md bg-[#f4f8f8] text-[#285d61] text-xs font-bold hover:bg-[#e6f1f1] cursor-pointer transition-colors"
+                    onClick={() => openModal("assembly", assembly.id)}
+                  >
                     <Icon name="edit" size={15} /> Edit
                   </button>
                   <PermissionGate permission={WORKSPACE_PERMISSIONS.DELETE_ASSEMBLY}>
-                    <button className="danger" onClick={() => remove("assembly", assembly.id)}>
+                    <button
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 border border-[#f2d0d0] rounded-md bg-[#fdf2f2] text-[#a83737] text-xs font-bold hover:bg-[#fae4e4] cursor-pointer transition-colors"
+                      onClick={() => remove("assembly", assembly.id)}
+                    >
                       <Icon name="trash" size={15} /> Delete
                     </button>
                   </PermissionGate>
@@ -132,7 +151,7 @@ export function AssemblyLibrary({
             </article>
           ))}
           {!systemAssemblies.length && (
-            <p className="price-book-empty">
+            <p className="col-span-full m-0 p-[42px_22px] border border-dashed border-[#b8d1d3] rounded-[10px] bg-white text-[#607d80] text-center text-sm">
               No {assemblyCategoryName} assemblies yet. Add one to start building reusable components.
             </p>
           )}

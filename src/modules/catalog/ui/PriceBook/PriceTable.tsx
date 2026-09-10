@@ -137,17 +137,29 @@ export function PriceTable({
 
   return (
     <section className={`price-book-section ${section} ${isStockView ? "stock-book-section" : ""}`}>
-      <header className="price-book-section-header">
+      <header
+        className={`flex items-end justify-between px-0.5 pb-1 ${
+          section === "price-general"
+            ? "border-l-[3px] border-l-[#4ca79d] pl-2"
+            : section === "price-technal"
+            ? "border-l-[3px] border-l-[#5689ae] pl-2"
+            : section === "price-sidem"
+            ? "border-l-[3px] border-l-[#a388bc] pl-2"
+            : ""
+        }`}
+      >
         <div>
-          <h2>{title}</h2>
-          <p>{note}</p>
+          <h2 className="m-0 text-[#244a4e] text-sm font-bold">{title}</h2>
+          <p className="m-0 mt-0.5 text-[#748b8f] text-[11px]">{note}</p>
         </div>
-        <div className="price-book-section-actions">
-          <span>{rows.length}</span>
+        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+          <span className="grid place-items-center min-w-[21px] h-[21px] rounded-full bg-[#e2f1ee] text-[#1b6d68] text-[10px] font-extrabold px-1.5">
+            {rows.length}
+          </span>
           {moveMaterialId && (
             <button
               type="button"
-              className="price-move-here"
+              className="flex items-center gap-1 min-h-[28px] px-2 border border-[#d5a54f] rounded-[5px] bg-[#fff8df] text-[#8a5b08] text-[10px] font-extrabold hover:bg-[#ffefbd] cursor-pointer transition-colors"
               onClick={() =>
                 isSolealAccessoriesTable
                   ? onMovePriceMaterialToSolealAccessories(moveMaterialId)
@@ -159,7 +171,7 @@ export function PriceTable({
           )}
           <button
             type="button"
-            className="price-move-here"
+            className="flex items-center gap-1 min-h-[28px] px-2 border border-[#d5a54f] rounded-[5px] bg-[#fff8df] text-[#8a5b08] text-[10px] font-extrabold hover:bg-[#ffefbd] cursor-pointer transition-colors"
             onClick={() =>
               onOpenMoveCompanyTable({
                 tableId: companyTableId,
@@ -175,17 +187,21 @@ export function PriceTable({
           </button>
           <button
             type="button"
-            className="price-table-toggle"
+            className="flex items-center gap-1 min-h-[28px] px-2 border border-[#8eb8d5] rounded-[5px] bg-white text-[#2b5d82] text-[10px] font-extrabold hover:bg-[#eaf3fa] cursor-pointer transition-colors"
             onClick={() => onToggleCollapse(tableId)}
             aria-expanded={!collapsed}
           >
             {collapsed ? "Open" : "Close"}
           </button>
-          <button type="button" onClick={() => onOpenComponent(databaseId, companyTableId, insertedMaterialPriceTable)}>
+          <button
+            type="button"
+            className="flex items-center gap-1 min-h-[28px] px-2 border border-[#a7cfca] rounded-[5px] bg-white text-[#1d6f69] text-[10px] font-extrabold hover:bg-[#e5f4f1] cursor-pointer transition-colors"
+            onClick={() => onOpenComponent(databaseId, companyTableId, insertedMaterialPriceTable)}
+          >
             <Icon name="plus" size={13} /> Add component
           </button>
           {!isStockView && (
-            <label className="table-weight-rate">
+            <label className="flex items-center gap-1 px-[5px] py-[3px] rounded-[5px] bg-[#c7e1dc] text-[#104c4c] text-[10px] font-black whitespace-nowrap">
               <span>$/kg</span>
               <input
                 aria-label={`Weight rate for ${title}`}
@@ -194,6 +210,7 @@ export function PriceTable({
                 step="any"
                 value={weightRate}
                 onChange={(event) => onSetTableWeightRate(tableId, Number(event.target.value))}
+                className="w-16 h-7 min-w-0 px-[5px] py-1 border border-[#4c8e87] rounded bg-[#e4f2ef] text-[#164b4c] font-extrabold outline-none"
               />
             </label>
           )}
@@ -582,7 +599,7 @@ export function PriceTable({
               </div>
             );
           })}
-          {!rows.length && <p className="price-book-empty">No materials in this price group yet.</p>}
+          {!rows.length && <p className="m-0 p-[18px] text-[#7b9194] text-[11px] text-center">No materials in this price group yet.</p>}
         </div>
       )}
     </section>

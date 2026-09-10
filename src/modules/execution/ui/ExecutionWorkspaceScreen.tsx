@@ -439,7 +439,7 @@ export function ExecutionWorkspaceScreen({
     setOptimizationCuts(optimization.cuts.map((cut) => (cut.id === cutId ? { ...cut, ...changes } : cut)));
 
   const WorkspaceCuttingListPage = () => (
-    <section className="workspace-cutting-list-page">
+    <section className="h-full">
       <CuttingListSpreadsheet
         profileCatalog={profileMaterials.map((material) => ({
           code: material.code,
@@ -481,20 +481,21 @@ export function ExecutionWorkspaceScreen({
   };
 
   const WorkspaceOptimizationPage = () => (
-    <section className="workspace-optimizer">
-      <section className="workspace-optimizer-settings">
+    <section className="grid gap-4 mt-7">
+      <section className="p-5 border border-[#c5dcda] rounded-xl bg-white shadow-[0_5px_16px_rgba(22,63,65,0.06)]">
         <div>
-          <p className="eyebrow">Cutting optimization</p>
-          <h2>Generate the best cutting plan</h2>
-          <p>
+          <p className="m-0 mb-1.5 text-[#23736f] text-[11px] font-extrabold uppercase tracking-[0.09em]">Cutting optimization</p>
+          <h2 className="mt-1 mb-1 text-[#21484b] text-[19px] font-bold">Generate the best cutting plan</h2>
+          <p className="m-0 text-[#607d80] text-xs leading-[1.45]">
             Enter the required cuts in millimeters. The engine keeps each profile separate and tries up to the selected
             number of arrangements per profile.
           </p>
         </div>
-        <div className="workspace-optimizer-settings-grid">
-          <label>
+        <div className="grid grid-cols-4 max-[900px]:grid-cols-2 max-[620px]:grid-cols-1 gap-2.5 mt-4">
+          <label className="grid gap-1.5 text-[#3b6668] text-[10px] font-extrabold uppercase [&>span]:text-[#729092] [&>span]:text-[9px]">
             Stock length <span>mm</span>
             <input
+              className="w-full h-[34px] min-w-0 px-2 py-1 border border-[#9bc5c1] rounded bg-[#f8fdfc] text-[#174c4d] text-xs font-bold outline-none focus:border-[#27827d]"
               type="number"
               min="1"
               step="1"
@@ -508,9 +509,10 @@ export function ExecutionWorkspaceScreen({
               }
             />
           </label>
-          <label>
+          <label className="grid gap-1.5 text-[#3b6668] text-[10px] font-extrabold uppercase [&>span]:text-[#729092] [&>span]:text-[9px]">
             Saw kerf <span>mm</span>
             <input
+              className="w-full h-[34px] min-w-0 px-2 py-1 border border-[#9bc5c1] rounded bg-[#f8fdfc] text-[#174c4d] text-xs font-bold outline-none focus:border-[#27827d]"
               type="number"
               min="0"
               step="0.1"
@@ -524,9 +526,10 @@ export function ExecutionWorkspaceScreen({
               }
             />
           </label>
-          <label>
+          <label className="grid gap-1.5 text-[#3b6668] text-[10px] font-extrabold uppercase [&>span]:text-[#729092] [&>span]:text-[9px]">
             End trim <span>mm</span>
             <input
+              className="w-full h-[34px] min-w-0 px-2 py-1 border border-[#9bc5c1] rounded bg-[#f8fdfc] text-[#174c4d] text-xs font-bold outline-none focus:border-[#27827d]"
               type="number"
               min="0"
               step="0.1"
@@ -540,9 +543,10 @@ export function ExecutionWorkspaceScreen({
               }
             />
           </label>
-          <label>
+          <label className="grid gap-1.5 text-[#3b6668] text-[10px] font-extrabold uppercase [&>span]:text-[#729092] [&>span]:text-[9px]">
             Search depth
             <select
+              className="w-full h-[34px] min-w-0 px-2 py-1 border border-[#9bc5c1] rounded bg-[#f8fdfc] text-[#174c4d] text-xs font-bold outline-none focus:border-[#27827d]"
               value={optimization.arrangements}
               onChange={(event) =>
                 updateWorkspaceOptimization({
@@ -559,15 +563,15 @@ export function ExecutionWorkspaceScreen({
           </label>
         </div>
       </section>
-      <section className="workspace-cut-list">
-        <header>
+      <section className="p-5 border border-[#c5dcda] rounded-xl bg-white shadow-[0_5px_16px_rgba(22,63,65,0.06)]">
+        <header className="flex items-start justify-between max-[620px]:flex-col gap-3.5 mb-3.5">
           <div>
-            <h2>Required cuts</h2>
-            <p>Use the profiles from this workspace’s independent Stock snapshot.</p>
+            <h2 className="mt-1 mb-1 text-[#21484b] text-[19px] font-bold">Required cuts</h2>
+            <p className="m-0 text-[#607d80] text-xs leading-[1.45]">Use the profiles from this workspace’s independent Stock snapshot.</p>
           </div>
           <button
             type="button"
-            className="secondary-button"
+            className="min-h-[35px] inline-flex items-center justify-center gap-2 px-4 rounded-[8px] font-bold border border-[#cad9da] bg-white text-[#345156] hover:bg-[#f0f6f6] cursor-pointer transition-colors"
             onClick={() => {
               if (!profileMaterials.length) {
                 setWorkspaceOptimizationError("No profiles are available in this workspace Stock snapshot.");
@@ -579,8 +583,8 @@ export function ExecutionWorkspaceScreen({
             <Icon name="plus" size={15} /> Add cut
           </button>
         </header>
-        <div className="workspace-cut-grid" role="table">
-          <div className="workspace-cut-grid-header" role="row">
+        <div className="overflow-auto border border-[#c7dddd] rounded-lg" role="table">
+          <div className="grid grid-cols-[minmax(145px,1.05fr)_minmax(210px,1.7fr)_minmax(108px,0.8fr)_68px_74px_32px] gap-2 items-center min-w-[690px] p-2 px-2.5 bg-[#16464b] text-[#eaf6f5] text-[9px] font-extrabold tracking-[0.04em] uppercase" role="row">
             <span>Opening / item</span>
             <span>Profile</span>
             <span>Cut length</span>
@@ -589,9 +593,10 @@ export function ExecutionWorkspaceScreen({
             <span />
           </div>
           {optimization.cuts.map((cut) => (
-            <div className="workspace-cut-grid-row" role="row" key={cut.id}>
+            <div className="grid grid-cols-[minmax(145px,1.05fr)_minmax(210px,1.7fr)_minmax(108px,0.8fr)_68px_74px_32px] gap-2 items-center min-w-[690px] p-2 px-2.5 border-t border-[#dce9e8] bg-[#fbfdfd]" role="row" key={cut.id}>
               <span>
                 <input
+                  className="w-full h-[30px] min-w-0 px-1.5 py-1 border border-[#b2cecb] rounded bg-white text-[#244f51] text-[11px] outline-none focus:border-[#27827d]"
                   aria-label="Opening or item"
                   value={cut.openingName}
                   placeholder="e.g. Window A"
@@ -600,6 +605,7 @@ export function ExecutionWorkspaceScreen({
               </span>
               <span>
                 <select
+                  className="w-full h-[30px] min-w-0 px-1.5 py-1 border border-[#b2cecb] rounded bg-white text-[#244f51] text-[11px] outline-none focus:border-[#27827d]"
                   aria-label="Profile"
                   value={cut.profileId}
                   onChange={(event) => {
@@ -619,8 +625,9 @@ export function ExecutionWorkspaceScreen({
                   ))}
                 </select>
               </span>
-              <span className="workspace-cut-length">
+              <span className="flex items-center gap-1 [&>em]:text-[#6b8588] [&>em]:text-[10px] [&>em]:not-italic [&>em]:font-extrabold">
                 <input
+                  className="w-full h-[30px] min-w-0 px-1.5 py-1 border border-[#b2cecb] rounded bg-white text-[#244f51] text-[11px] outline-none focus:border-[#27827d]"
                   aria-label="Cut length in millimeters"
                   type="number"
                   min="0.1"
@@ -632,6 +639,7 @@ export function ExecutionWorkspaceScreen({
               </span>
               <span>
                 <input
+                  className="w-full h-[30px] min-w-0 px-1.5 py-1 border border-[#b2cecb] rounded bg-white text-[#244f51] text-[11px] outline-none focus:border-[#27827d]"
                   aria-label="Quantity"
                   type="number"
                   min="1"
@@ -644,6 +652,7 @@ export function ExecutionWorkspaceScreen({
               </span>
               <span>
                 <select
+                  className="w-full h-[30px] min-w-0 px-1.5 py-1 border border-[#b2cecb] rounded bg-white text-[#244f51] text-[11px] outline-none focus:border-[#27827d]"
                   aria-label="Cut angle"
                   value={cut.angle}
                   onChange={(event) => updateOptimizationCut(cut.id, { angle: Number(event.target.value) as 45 | 90 })}
@@ -654,7 +663,7 @@ export function ExecutionWorkspaceScreen({
               </span>
               <span>
                 <button
-                  className="icon-button danger"
+                  className="w-[29px] h-[29px] grid place-items-center rounded-[7px] border-0 bg-transparent text-[#a33131] hover:bg-[#fdeaea] cursor-pointer transition-colors"
                   type="button"
                   aria-label="Delete cut"
                   onClick={() => setOptimizationCuts(optimization.cuts.filter((item) => item.id !== cut.id))}
@@ -665,34 +674,43 @@ export function ExecutionWorkspaceScreen({
             </div>
           ))}
           {!optimization.cuts.length && (
-            <p className="workspace-cut-empty">Add the first required cut to generate an optimization.</p>
+            <p className="p-6 m-0 text-[#71898b] text-xs text-center">Add the first required cut to generate an optimization.</p>
           )}
         </div>
         {workspaceOptimizationError && (
-          <p className="workspace-optimization-error" role="alert">
+          <p className="mt-3 p-2.5 px-3 rounded-md bg-[#fdebed] text-[#9e3037] text-xs font-bold" role="alert">
             {workspaceOptimizationError}
           </p>
         )}
-        <div className="workspace-optimizer-actions">
-          <button type="button" className="primary-button" onClick={generateWorkspaceOptimization}>
+        <div className="flex flex-wrap gap-2 mt-3.5">
+          <button
+            type="button"
+            className="min-h-[35px] inline-flex items-center justify-center gap-2 px-4 rounded-[8px] font-bold border border-[#146c68] bg-[#176f6b] text-white shadow-[0_2px_5px_#164e4d2e] hover:bg-[#105d59] cursor-pointer transition-colors"
+            onClick={generateWorkspaceOptimization}
+          >
             <Icon name="box" size={16} /> Generate optimized plan
           </button>
-          <button type="button" className="secondary-button" onClick={findWorkspaceBestStockLength}>
+          <button
+            type="button"
+            className="min-h-[35px] inline-flex items-center justify-center gap-2 px-4 rounded-[8px] font-bold border border-[#cad9da] bg-white text-[#345156] hover:bg-[#f0f6f6] cursor-pointer transition-colors"
+            onClick={findWorkspaceBestStockLength}
+          >
             Find best stock length
           </button>
         </div>
       </section>
-      <section className="workspace-stock-advisor">
-        <div>
-          <b>Best stock length advisor</b>
-          <span>
+      <section className="p-5 border border-[#c5dcda] rounded-xl bg-white shadow-[0_5px_16px_rgba(22,63,65,0.06)] flex items-end max-[900px]:items-stretch max-[900px]:flex-wrap gap-3">
+        <div className="grid flex-1 max-[900px]:basis-full gap-1 min-w-[180px]">
+          <b className="text-[#22575a] text-[13px]">Best stock length advisor</b>
+          <span className="text-[#688286] text-[11px] leading-[1.35]">
             Tests the selected range with the fast optimizer, then you can use the recommended length for the full
             arrangement search.
           </span>
         </div>
-        <label>
+        <label className="w-[92px] max-[620px]:w-[calc(33.333%-8px)] flex-none grid gap-1 text-[#3b6668] text-[10px] font-extrabold uppercase">
           Minimum
           <input
+            className="w-full h-[34px] min-w-0 px-2 py-1 border border-[#9bc5c1] rounded bg-[#f8fdfc] text-[#174c4d] text-xs font-bold outline-none focus:border-[#27827d]"
             type="number"
             min="1"
             step="100"
@@ -702,9 +720,10 @@ export function ExecutionWorkspaceScreen({
             }
           />
         </label>
-        <label>
+        <label className="w-[92px] max-[620px]:w-[calc(33.333%-8px)] flex-none grid gap-1 text-[#3b6668] text-[10px] font-extrabold uppercase">
           Maximum
           <input
+            className="w-full h-[34px] min-w-0 px-2 py-1 border border-[#9bc5c1] rounded bg-[#f8fdfc] text-[#174c4d] text-xs font-bold outline-none focus:border-[#27827d]"
             type="number"
             min="1"
             step="100"
@@ -714,9 +733,10 @@ export function ExecutionWorkspaceScreen({
             }
           />
         </label>
-        <label>
+        <label className="w-[92px] max-[620px]:w-[calc(33.333%-8px)] flex-none grid gap-1 text-[#3b6668] text-[10px] font-extrabold uppercase">
           Step
           <input
+            className="w-full h-[34px] min-w-0 px-2 py-1 border border-[#9bc5c1] rounded bg-[#f8fdfc] text-[#174c4d] text-xs font-bold outline-none focus:border-[#27827d]"
             type="number"
             min="1"
             step="10"
@@ -727,7 +747,7 @@ export function ExecutionWorkspaceScreen({
           />
         </label>
         {optimization.recommendation && (
-          <div className="workspace-stock-recommendation">
+          <div className="grid gap-1 min-w-[155px] max-[620px]:w-full p-2 px-2.5 rounded-md bg-[#e7f5f2] text-[#216c66] [&>strong]:text-xs [&>span]:text-[10px] [&>button]:justify-self-start [&>button]:mt-1 [&>button]:p-0 [&>button]:border-0 [&>button]:bg-transparent [&>button]:text-[#176e68] [&>button]:text-[10px] [&>button]:font-extrabold [&>button]:underline [&>button]:cursor-pointer">
             <strong>{number(optimization.recommendation.length)} mm recommended</strong>
             <span>
               {optimization.recommendation.result.bars.length} bars ·{" "}
@@ -745,18 +765,18 @@ export function ExecutionWorkspaceScreen({
         )}
       </section>
       {optimization.result && (
-        <section className="workspace-optimization-result">
-          <header>
+        <section className="p-5 border border-[#c5dcda] rounded-xl bg-white shadow-[0_5px_16px_rgba(22,63,65,0.06)]">
+          <header className="flex items-center max-[900px]:items-start max-[900px]:flex-col justify-between gap-3.5 mb-3.5">
             <div>
-              <p className="eyebrow">Optimized result</p>
-              <h2>Cutting plan</h2>
-              <p>
+              <p className="m-0 mb-1.5 text-[#23736f] text-[11px] font-extrabold uppercase tracking-[0.09em]">Optimized result</p>
+              <h2 className="mt-1 mb-1 text-[#21484b] text-[19px] font-bold">Cutting plan</h2>
+              <p className="m-0 text-[#607d80] text-xs leading-[1.45]">
                 {optimization.result.minimumProven
                   ? "The lower bound was reached for every profile."
                   : `Best result after up to ${optimization.result.arrangements.toLocaleString()} arrangements per profile.`}
               </p>
             </div>
-            <div className="workspace-optimization-metrics">
+            <div className="flex flex-wrap gap-2 justify-end max-[900px]:justify-start [&>span]:grid [&>span]:gap-0.5 [&>span]:min-w-[74px] [&>span]:p-2 [&>span]:rounded-md [&>span]:bg-[#edf7f6] [&>span]:text-[#507174] [&>span]:text-[9px] [&>span]:font-extrabold [&>span]:text-center [&>span]:uppercase [&>span>b]:text-[#176d67] [&>span>b]:text-base">
               <span>
                 <b>{optimization.result.bars.length}</b>stock bars
               </span>
@@ -768,10 +788,10 @@ export function ExecutionWorkspaceScreen({
               </span>
             </div>
           </header>
-          <div className="workspace-bar-list">
+          <div className="grid gap-2.5">
             {optimization.result.bars.map((bar, index) => (
-              <article className="workspace-bar" key={bar.id}>
-                <div className="workspace-bar-heading">
+              <article className="p-3 border border-[#ccdedd] rounded-lg bg-[#fbfdfd]" key={bar.id}>
+                <div className="flex justify-between max-[620px]:flex-col gap-3.5 text-[#2c5c5f] text-[11px] [&>span]:text-[#6b8486]">
                   <b>
                     {bar.profileCode || bar.profileName} · Bar {String(index + 1).padStart(2, "0")}
                   </b>
@@ -779,9 +799,10 @@ export function ExecutionWorkspaceScreen({
                     {number(bar.used, 1)} mm used · {number(bar.waste, 1)} mm offcut
                   </span>
                 </div>
-                <div className="workspace-bar-visual">
+                <div className="flex h-[33px] my-2 overflow-hidden border border-[#a8c5c2] rounded bg-[#e4eeee]">
                   {bar.pieces.map((piece) => (
                     <span
+                      className="grid min-w-0 place-items-center overflow-hidden border-r border-white/70 bg-[#5c9d9a] text-white text-[9px] font-extrabold text-ellipsis whitespace-nowrap nth-[3n]:bg-[#497da5] nth-[3n+2]:bg-[#6a9f76]"
                       key={piece.id}
                       style={{ width: `${Math.max(2, (piece.length / optimization.result!.stockLength) * 100)}%` }}
                       title={`${piece.openingName || piece.profileName}: ${number(piece.length)} mm`}
@@ -789,9 +810,12 @@ export function ExecutionWorkspaceScreen({
                       {piece.openingName || piece.profileCode}
                     </span>
                   ))}
-                  <i style={{ width: `${Math.max(0, (bar.waste / optimization.result!.stockLength) * 100)}%` }} />
+                  <i
+                    className="block min-w-0 bg-[repeating-linear-gradient(135deg,#e7bb91_0,#e7bb91_5px,#f7e3cc_5px,#f7e3cc_10px)]"
+                    style={{ width: `${Math.max(0, (bar.waste / optimization.result!.stockLength) * 100)}%` }}
+                  />
                 </div>
-                <p>
+                <p className="m-0 text-[#607a7d] text-[10px] leading-[1.45]">
                   {bar.pieces
                     .map((piece) => `${piece.openingName || piece.profileCode} · ${number(piece.length)} mm · ${piece.angle}°`)
                     .join("  |  ")}
@@ -805,64 +829,70 @@ export function ExecutionWorkspaceScreen({
   );
 
   return (
-    <div className="execution-workspace-app">
-      <aside className="execution-workspace-sidebar">
+    <div className="min-h-screen flex bg-[#f5f7f8]">
+      <aside className="flex flex-col flex-none w-[246px] max-[760px]:w-[76px] p-7 max-[760px]:py-6 max-[760px]:px-2.5 bg-[#163f44] text-[#d9e6e7]">
         <button
-          className="execution-projects-brand"
+          className="flex items-center gap-2.5 self-start max-[760px]:justify-center mb-[42px] p-0 border-0 bg-transparent text-white text-left text-lg font-extrabold leading-none cursor-pointer [&>svg]:text-[#82d4c9]"
           type="button"
           onClick={() => setScreen("execution-project-detail")}
           aria-label="Return to project files"
         >
           <Icon name="arrow" size={20} />
-          <span>
+          <span className="max-[760px]:hidden">
             Project
             <br />
             workspace
           </span>
         </button>
-        <p>{workspace.name}</p>
-        <nav aria-label="Workspace pages">
+        <p className="mx-[11px] mb-4 text-[#8eb8b8] text-[11px] font-extrabold leading-[1.35] [overflow-wrap:anywhere] max-[760px]:hidden">{workspace.name}</p>
+        <nav aria-label="Workspace pages" className="grid gap-[5px]">
           {pages.map((page) => (
             <button
               key={page.id}
               type="button"
-              className={executionWorkspacePage === page.id ? "active" : ""}
+              className={`flex items-center gap-2.5 w-full p-[11px] border-0 rounded-lg text-left text-sm font-bold max-[760px]:justify-center cursor-pointer transition-colors ${
+                executionWorkspacePage === page.id
+                  ? "bg-[#28636a] text-white"
+                  : "bg-transparent text-[#b7cccc] hover:bg-[#28636a] hover:text-white"
+              }`}
               onClick={() => setExecutionWorkspacePage(page.id)}
             >
               <Icon name={page.id === "material-order" ? "order" : page.id === "database" ? "layers" : "box"} size={18} />
-              <span>{page.label}</span>
+              <span className="max-[760px]:hidden">{page.label}</span>
             </button>
           ))}
         </nav>
       </aside>
       <div
-        className={`execution-workspace-content${
-          currentPage.id === "cutting-list" ? " execution-workspace-content--cutting-list" : ""
+        className={`min-w-0 flex-1 ${
+          currentPage.id === "cutting-list" ? "flex min-h-screen" : ""
         }`}
       >
         {currentPage.id !== "cutting-list" && (
-          <header className="execution-projects-topbar">
+          <header className="flex items-center justify-between h-[69px] px-12 max-[760px]:px-5 border-b border-[#e0e8e9] bg-white text-[#284d51] text-sm font-extrabold">
             <span>{workspace.name}</span>
             <ProfileMenu />
           </header>
         )}
         <main
-          className={`execution-workspace-main${
-            currentPage.id === "cutting-list" ? " execution-workspace-main--cutting-list" : ""
-          }`}
+          className={
+            currentPage.id === "cutting-list"
+              ? "flex flex-1 min-w-0 min-h-0 p-2.5 max-[760px]:p-[5px]"
+              : "p-9 max-[760px]:p-5 px-12 max-[760px]:px-5"
+          }
         >
           {currentPage.id !== "cutting-list" && (
             <>
               <button
-                className="back-button"
+                className="border-0 bg-transparent p-0 text-[#28716e] text-[13px] font-bold cursor-pointer hover:underline inline-flex items-center gap-1 mb-2"
                 type="button"
                 onClick={() => setScreen("execution-project-detail")}
               >
-                Project files
+                ← Project files
               </button>
-              <p className="eyebrow">{project.name}</p>
-              <h1>{currentPage.label}</h1>
-              <p className="intro">{currentPage.description}</p>
+              <p className="m-0 mb-1.5 text-[#23736f] text-[11px] font-extrabold uppercase tracking-[0.09em]">{project.name}</p>
+              <h1 className="m-0 text-[#1a3e42] text-[32px] font-bold">{currentPage.label}</h1>
+              <p className="max-w-[650px] mt-2 mb-0 text-[#60797c] text-sm leading-relaxed">{currentPage.description}</p>
             </>
           )}
           {currentPage.id === "cutting-list" ? (
@@ -871,23 +901,27 @@ export function ExecutionWorkspaceScreen({
             WorkspaceOptimizationPage()
           ) : currentPage.id === "database" ? (
             stockSnapshot ? (
-              <section className="workspace-stock-page">
-                <div className="workspace-stock-tabs" role="tablist" aria-label="Workspace stock databases">
+              <section className="mt-7">
+                <div className="flex flex-wrap gap-2 mb-3 ml-3.5 max-[760px]:ml-0" role="tablist" aria-label="Workspace stock databases">
                   {stockTabs.map((tab) => (
                     <button
                       key={tab.id}
                       type="button"
                       role="tab"
                       aria-selected={activeWorkspaceStockDatabase === tab.id}
-                      className={activeWorkspaceStockDatabase === tab.id ? "active" : ""}
+                      className={`min-h-[31px] px-3 border rounded text-[11px] font-extrabold cursor-pointer transition-colors ${
+                        activeWorkspaceStockDatabase === tab.id
+                          ? "border-[#3d918a] bg-[#e0f1ee] text-[#155a56]"
+                          : "border-[#b9d7d4] bg-white text-[#286864] hover:border-[#3d918a] hover:bg-[#e0f1ee] hover:text-[#155a56]"
+                      }`}
                       onClick={() => setWorkspaceStockDatabaseId(tab.id)}
                     >
                       {tab.label}
                     </button>
                   ))}
                 </div>
-                <section className="library-panel price-book-panel workspace-stock-panel">
-                  <div className="workspace-stock-notice">
+                <section className="mx-12 mb-9 p-[18px] border border-[#dfe8e8] rounded-[13px] bg-white shadow-[0_8px_27px_#183f4110] grid gap-3.5 max-[700px]:mx-5">
+                  <div className="flex items-center justify-between max-[760px]:flex-col max-[760px]:items-start gap-4 mb-4 p-3 border border-[#bfdbd7] rounded-lg bg-[#edf8f6] text-[#336d69] text-[11px] [&>div]:grid [&>div]:gap-1 [&>div>b]:text-[#176a65] [&>div>b]:text-xs [&>div>span]:leading-[1.4]">
                     <div>
                       <b>Stock snapshot</b>
                       <span>
@@ -898,24 +932,25 @@ export function ExecutionWorkspaceScreen({
                         . This is the same Stock table structure, saved independently for {workspace.name}.
                       </span>
                     </div>
-                    <div className="workspace-stock-notice-actions">
+                    <div className="flex items-center gap-2 justify-end [&>strong]:flex-none [&>strong]:px-2 [&>strong]:py-1 [&>strong]:rounded-full [&>strong]:bg-[#d6eeea] [&>strong]:text-[#176a65] [&>strong]:text-[11px] [&>button]:min-h-[29px] [&>button]:px-2.5 [&>button]:border [&>button]:border-[#398f88] [&>button]:rounded [&>button]:bg-[#187b75] [&>button]:text-white [&>button]:text-[10px] [&>button]:font-extrabold [&>button]:whitespace-nowrap [&>button]:cursor-pointer hover:[&>button]:bg-[#106963]">
                       <strong>{stockMaterialCount} materials</strong>
                       <button type="button" onClick={matchWorkspaceStockWithCurrent}>
                         Match with current Stock
                       </button>
                     </div>
                   </div>
-                  <div className="toolbar">
-                    <label className="search-field">
+                  <div className="flex items-center justify-between gap-4 pb-[18px] flex-wrap">
+                    <label className="w-[min(330px,100%)] h-10 flex items-center gap-2 px-3 border border-[#d5e0e1] rounded-[7px] text-[#698086] focus-within:border-[#27827d]">
                       <Icon name="search" size={17} />
                       <span className="sr-only">Search workspace stock</span>
                       <input
+                        className="w-full border-0 outline-none bg-transparent text-[#18363a] text-sm"
                         value={workspaceStockSearch}
                         onChange={(event) => setWorkspaceStockSearch(event.target.value)}
                         placeholder={`Search ${stockTabs.find((tab) => tab.id === activeWorkspaceStockDatabase)?.label ?? "database"}`}
                       />
                     </label>
-                    <label className="assembly-type-filter">
+                    <label className="flex items-center gap-2 text-xs font-bold text-[#4c696d] [&>select]:h-10 [&>select]:px-2.5 [&>select]:border [&>select]:border-[#d5e0e1] [&>select]:rounded-[7px] [&>select]:bg-white [&>select]:text-[#18363a]">
                       <span>Assembly type</span>
                       <select
                         value={workspaceStockAssemblyType}
@@ -929,17 +964,17 @@ export function ExecutionWorkspaceScreen({
                         ))}
                       </select>
                     </label>
-                    <span className="item-count">{stockMaterialCount} materials</span>
+                    <span className="px-3 py-1 rounded-full bg-[#dff0ed] text-[#156a65] text-xs font-bold">{stockMaterialCount} materials</span>
                   </div>
                   {stockTables.map((table) => (
                     <section className={`price-book-section ${table.section} stock-book-section workspace-stock-section`} key={table.id}>
-                      <header className="price-book-section-header">
+                      <header className="flex items-end justify-between px-0.5 pb-1">
                         <div>
-                          <h2>{table.title}</h2>
-                          <p>{table.note}</p>
+                          <h2 className="m-0 text-[#244a4e] text-sm font-bold">{table.title}</h2>
+                          <p className="m-0 mt-0.5 text-[#748b8f] text-[11px]">{table.note}</p>
                         </div>
-                        <div className="price-book-section-actions">
-                          <span>{table.rows.length}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="grid place-items-center min-w-[21px] h-[21px] rounded-full bg-[#e2f1ee] text-[#1b6d68] text-[10px] font-extrabold px-1.5">{table.rows.length}</span>
                         </div>
                       </header>
                       <div
@@ -1066,28 +1101,28 @@ export function ExecutionWorkspaceScreen({
                             </div>
                           );
                         })}
-                        {!table.rows.length && <p className="price-book-empty">No materials in this price group yet.</p>}
+                        {!table.rows.length && <p className="m-0 p-[18px] text-[#7b9194] text-[11px] text-center">No materials in this price group yet.</p>}
                       </div>
                     </section>
                   ))}
-                  {!stockTables.length && <p className="price-book-empty">No tables are saved in this database snapshot.</p>}
+                  {!stockTables.length && <p className="m-0 p-[18px] text-[#7b9194] text-[11px] text-center">No tables are saved in this database snapshot.</p>}
                 </section>
               </section>
             ) : (
-              <section className="execution-workspace-empty">
+              <section className="grid justify-items-center gap-2.5 max-w-[700px] mt-8 p-14 px-7 border border-dashed border-[#b8d1d3] rounded-xl bg-white text-[#527074] text-center [&>svg]:text-[#27827d]">
                 <Icon name="layers" size={34} />
-                <h2>No stock snapshot</h2>
-                <p>
+                <h2 className="m-0 text-[#244d50] text-lg font-bold">No stock snapshot</h2>
+                <p className="m-0 text-sm">
                   This workspace was created before stock snapshots were added. Create a new workspace to capture the
                   current Stock page.
                 </p>
               </section>
             )
           ) : (
-            <section className="execution-workspace-empty">
+            <section className="grid justify-items-center gap-2.5 max-w-[700px] mt-8 p-14 px-7 border border-dashed border-[#b8d1d3] rounded-xl bg-white text-[#527074] text-center [&>svg]:text-[#27827d]">
               <Icon name={currentPage.id === "material-order" ? "order" : "box"} size={34} />
-              <h2>{currentPage.label}</h2>
-              <p>This page is ready for its project tools.</p>
+              <h2 className="m-0 text-[#244d50] text-lg font-bold">{currentPage.label}</h2>
+              <p className="m-0 text-sm">This page is ready for its project tools.</p>
             </section>
           )}
         </main>

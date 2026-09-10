@@ -5,7 +5,6 @@ import {
 import { money, number, unitPriceWithShipping } from "../../../domain/calculations";
 import type { Assembly, CanvasItem, Material, Project } from "../../../domain/types";
 import {
-  MAX_OPENING_DIMENSION,
   allJoinedWindowGroup,
   realJoinSegments,
   windowCornerPoint,
@@ -33,6 +32,7 @@ import {
 } from "../domain/projectDefaults";
 import { sellingPriceFromDirectCost } from "../../costing/domain/pricing";
 import { TechnicalSymbol } from "./TechnicalSymbol";
+import { CanvasContextMenu } from "./CanvasContextMenu";
 import type { useCanvasInteraction } from "../application/useCanvasInteraction";
 import type { useCanvasTakeoff } from "../application/useCanvasTakeoff";
 
@@ -116,19 +116,25 @@ export function CanvasScreen({
   );
 
   return (
-    <section className="canvas-page">
-      <div className="canvas-heading">
+    <section className="p-8 max-[900px]:p-6 max-[700px]:p-5">
+      <div className="flex justify-between items-end mb-5 max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-3.5">
         <div>
-          <button className="back-button" onClick={onNavigateToProjects}>
-            Projects
+          <button
+            className="border-0 bg-transparent p-0 text-[#28716e] text-[13px] font-bold cursor-pointer hover:underline inline-flex items-center gap-1 mb-2"
+            onClick={onNavigateToProjects}
+          >
+            ← Projects
           </button>
-          <h1>{project.name}</h1>
-          <p>
+          <h1 className="m-0 text-[#11262a] text-[28px] font-bold tracking-tight">{project.name}</h1>
+          <p className="mt-1.5 mb-0 text-[#6e8488] text-[13px]">
             {[project.client, project.company, project.location].filter(Boolean).join(" · ") ||
               "No project details"}
           </p>
         </div>
-        <button className="secondary-button" onClick={onOpenProjectDetails}>
+        <button
+          className="min-h-[42px] inline-flex items-center justify-center gap-2 px-4 rounded-lg font-bold border border-[#cad9da] bg-white text-[#345156] hover:bg-[#f0f6f6] transition-colors cursor-pointer"
+          onClick={onOpenProjectDetails}
+        >
           <Icon name="edit" size={16} /> Project details
         </button>
       </div>
@@ -310,40 +316,47 @@ export function CanvasScreen({
               canvas.drawingMode === "tilt-and-turn") && (
               <span className="tool-instruction">Move cursor, then click to place</span>
             )}
-            <section className="canvas-cost-summary" aria-label="Drawing cost summary">
-              <header>
+            <section
+              className="absolute top-3.5 right-[18px] w-[270px] border border-[#5a7479] rounded-[5px] bg-[#263237] text-[#eaf5f6] overflow-hidden shadow-lg"
+              aria-label="Drawing cost summary"
+            >
+              <header className="p-[7px_9px] bg-[#40545a] text-[#f1ffff] text-[11px] uppercase font-bold tracking-wide">
                 <strong>Cost summary</strong>
               </header>
-              <div>
-                <span>Material takeoff</span>
-                <b>{money(takeoff.materialTakeoffTotal)}</b>
+              <div className="flex justify-between gap-2.5 p-[5px_9px] border-t border-[#425459] text-[10px]">
+                <span className="text-[#c6d9da]">Material takeoff</span>
+                <b className="text-[#8fe1dc] whitespace-nowrap">{money(takeoff.materialTakeoffTotal)}</b>
               </div>
-              <div>
-                <span>Glass takeoff</span>
-                <b>{money(takeoff.glassTakeoffTotal)}</b>
+              <div className="flex justify-between gap-2.5 p-[5px_9px] border-t border-[#425459] text-[10px]">
+                <span className="text-[#c6d9da]">Glass takeoff</span>
+                <b className="text-[#8fe1dc] whitespace-nowrap">{money(takeoff.glassTakeoffTotal)}</b>
               </div>
-              <div>
-                <span>Manpower</span>
-                <b>{money(takeoff.manpowerTotal)}</b>
+              <div className="flex justify-between gap-2.5 p-[5px_9px] border-t border-[#425459] text-[10px]">
+                <span className="text-[#c6d9da]">Manpower</span>
+                <b className="text-[#8fe1dc] whitespace-nowrap">{money(takeoff.manpowerTotal)}</b>
               </div>
-              <div className="direct-cost">
-                <span>Direct cost</span>
-                <b>{money(takeoff.directCost)}</b>
+              <div className="flex justify-between gap-2.5 p-[7px_9px] border-t-2 border-[#8fe1dc] bg-[#263237] text-white text-[11px] font-extrabold">
+                <span className="text-[#e9ffff]">Direct cost</span>
+                <b className="text-[#e9ffff] whitespace-nowrap">{money(takeoff.directCost)}</b>
               </div>
-              <div className="selling-cost">
-                <span>
+              <div className="flex justify-between gap-2.5 p-[7px_9px] border-t-2 border-[#8fe1dc] bg-[#263237] text-white text-[11px] font-extrabold">
+                <span className="text-[#e9ffff] text-[11px]">
                   Selling cost · {takeoff.selectedMarkupName} ({number(takeoff.selectedMarkupRate)}%)
                 </span>
-                <b>
+                <b className="text-[#e9ffff] whitespace-nowrap">
                   {money(
                     sellingPriceFromDirectCost(takeoff.directCost, takeoff.selectedMarkupRate),
                   )}
                 </b>
               </div>
             </section>
-            <div className="canvas-bottom-tools">
+            <div className="absolute right-[18px] bottom-4 flex items-center gap-1 p-0">
               <button
-                className={canvas.takeoffPanel === "material" ? "selected" : ""}
+                className={`min-h-[30px] px-[9px] border rounded-[4px] text-[11px] font-extrabold cursor-pointer transition-colors ${
+                  canvas.takeoffPanel === "material"
+                    ? "border-[#187b82] bg-[#d7f0ed] text-[#126b6d]"
+                    : "border-[#b9ced0] bg-white text-[#315c60] hover:bg-slate-50"
+                }`}
                 onClick={() => {
                   canvas.setItemMaterialPanelId(null);
                   canvas.setTakeoffPanel((panel) => (panel === "material" ? null : "material"));
@@ -352,7 +365,11 @@ export function CanvasScreen({
                 Material
               </button>
               <button
-                className={canvas.takeoffPanel === "glass" ? "selected" : ""}
+                className={`min-h-[30px] px-[9px] border rounded-[4px] text-[11px] font-extrabold cursor-pointer transition-colors ${
+                  canvas.takeoffPanel === "glass"
+                    ? "border-[#187b82] bg-[#d7f0ed] text-[#126b6d]"
+                    : "border-[#b9ced0] bg-white text-[#315c60] hover:bg-slate-50"
+                }`}
                 onClick={() =>
                   canvas.setTakeoffPanel((panel) => (panel === "glass" ? null : "glass"))
                 }
@@ -360,7 +377,11 @@ export function CanvasScreen({
                 Glass
               </button>
               <button
-                className={canvas.takeoffPanel === "manpower" ? "selected" : ""}
+                className={`min-h-[30px] px-[9px] border rounded-[4px] text-[11px] font-extrabold cursor-pointer transition-colors ${
+                  canvas.takeoffPanel === "manpower"
+                    ? "border-[#187b82] bg-[#d7f0ed] text-[#126b6d]"
+                    : "border-[#b9ced0] bg-white text-[#315c60] hover:bg-slate-50"
+                }`}
                 onClick={() =>
                   canvas.setTakeoffPanel((panel) => (panel === "manpower" ? null : "manpower"))
                 }
@@ -369,7 +390,7 @@ export function CanvasScreen({
               </button>
             </div>
             {canvas.selectedGlassMaterialId && (
-              <div className="glass-assign-hint">
+              <div className="absolute right-[18px] bottom-[55px] max-w-[330px] p-[7px_10px] border border-[#55b5bb] rounded-[5px] bg-[#174f59] text-[#e9fbfd] text-[11px] font-extrabold">
                 Glass assignment active:{" "}
                 {materials.find((material) => material.id === canvas.selectedGlassMaterialId)?.name ??
                   "Selected glass"}
@@ -377,7 +398,7 @@ export function CanvasScreen({
               </div>
             )}
             {canvas.glassRemovalMode && (
-              <div className="glass-assign-hint glass-removal-hint">
+              <div className="absolute right-[18px] bottom-[55px] max-w-[330px] p-[7px_10px] border border-[#d27777] rounded-[5px] bg-[#542b2b] text-[#ffe2e2] text-[11px] font-extrabold">
                 Glass removal active: click a glass-filled window to remove its glass. Press Escape
                 to exit.
               </div>
@@ -806,385 +827,45 @@ export function CanvasScreen({
             </div>
           )}
           {canvas.contextMenu && contextItem && (
-            <section
-              className="item-context-menu"
-              style={{ left: canvas.contextMenu.x, top: canvas.contextMenu.y }}
-              aria-label={`Actions for ${contextItem.name}`}
-            >
-              <div className="context-menu-heading">
-                <div className="context-opening-name">
-                  <label htmlFor={`opening-name-${contextItem.id}`}>Item name</label>
-                  <input
-                    id={`opening-name-${contextItem.id}`}
-                    key={contextItem.name}
-                    defaultValue={contextItem.name}
-                    onFocus={() => canvas.setOpeningNameError("")}
-                    onBlur={(event) => canvas.renameCanvasItem(contextItem.id, event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") event.currentTarget.blur();
-                      if (event.key === "Escape") {
-                        event.currentTarget.value = contextItem.name;
-                        canvas.setOpeningNameError("");
-                        event.currentTarget.blur();
-                      }
-                    }}
-                    aria-describedby={canvas.openingNameError ? "opening-name-error" : undefined}
-                  />
-                </div>
-                {contextCombinationSize > 1 && (
-                  <>
-                    <div className="context-opening-name">
-                      <label htmlFor={`combination-name-${contextItem.id}`}>Combination name</label>
-                      <input
-                        id={`combination-name-${contextItem.id}`}
-                        key={contextItem.combinationName ?? ""}
-                        defaultValue={contextItem.combinationName ?? "Combination"}
-                        onFocus={() => canvas.setOpeningNameError("")}
-                        onBlur={(event) =>
-                          canvas.renameCombination(contextItem.id, event.target.value)
-                        }
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") event.currentTarget.blur();
-                          if (event.key === "Escape") {
-                            event.currentTarget.value = contextItem.combinationName ?? "";
-                            canvas.setOpeningNameError("");
-                            event.currentTarget.blur();
-                          }
-                        }}
-                        aria-describedby={canvas.openingNameError ? "opening-name-error" : undefined}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      className="context-separate"
-                      onClick={() => canvas.separateWindowFromCombination(contextItem.id)}
-                    >
-                      Separate
-                    </button>
-                  </>
-                )}
-              </div>
-              {canvas.openingNameError && (
-                <p id="opening-name-error" className="context-name-error" role="alert">
-                  {canvas.openingNameError}
-                </p>
-              )}
-              <div className="context-dimensions">
-                <label>
-                  Width (mm)
-                  <input
-                    type="number"
-                    step="1"
-                    min="200"
-                    max={MAX_OPENING_DIMENSION}
-                    defaultValue={contextItem.inputWidth ?? 1500}
-                    onBlur={(event) =>
-                      updateProject((current) => ({
-                        ...current,
-                        items: current.items.map((item) =>
-                          item.id === contextItem.id
-                            ? {
-                                ...item,
-                                inputWidth: Math.min(
-                                  MAX_OPENING_DIMENSION,
-                                  Math.max(200, Math.round(Number(event.target.value) || 200)),
-                                ),
-                              }
-                            : item,
-                        ),
-                      }))
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") event.currentTarget.blur();
-                    }}
-                  />
-                </label>
-                <label>
-                  Height (mm)
-                  <input
-                    type="number"
-                    step="1"
-                    min="200"
-                    max={MAX_OPENING_DIMENSION}
-                    defaultValue={contextItem.inputHeight ?? 1200}
-                    onBlur={(event) =>
-                      updateProject((current) => ({
-                        ...current,
-                        items: current.items.map((item) =>
-                          item.id === contextItem.id
-                            ? {
-                                ...item,
-                                inputHeight: Math.min(
-                                  MAX_OPENING_DIMENSION,
-                                  Math.max(200, Math.round(Number(event.target.value) || 200)),
-                                ),
-                              }
-                            : item,
-                        ),
-                      }))
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") event.currentTarget.blur();
-                    }}
-                  />
-                </label>
-                <label>
-                  Qty
-                  <input
-                    type="number"
-                    step="1"
-                    min="1"
-                    defaultValue={contextItem.quantity ?? 1}
-                    onBlur={(event) =>
-                      canvas.updateCombinationQuantity(contextItem.id, Number(event.target.value))
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") event.currentTarget.blur();
-                    }}
-                  />
-                </label>
-                <label>
-                  Reference
-                  <input
-                    key={contextItem.reference ?? "auto"}
-                    type="number"
-                    step="1"
-                    min="1"
-                    defaultValue={contextItem.reference ?? ""}
-                    placeholder="Auto"
-                    onFocus={() => canvas.setOpeningNameError("")}
-                    onBlur={(event) =>
-                      canvas.updateCanvasReference(
-                        contextItem.id,
-                        Math.round(Number(event.target.value)),
-                      )
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") event.currentTarget.blur();
-                      if (event.key === "Escape") {
-                        event.currentTarget.value = String(contextItem.reference ?? "");
-                        canvas.setOpeningNameError("");
-                        event.currentTarget.blur();
-                      }
-                    }}
-                    aria-describedby={canvas.openingNameError ? "opening-name-error" : undefined}
-                  />
-                </label>
-                {contextItem.kind === "assembly" && (
-                  <label className="context-window-type">
-                    Type
-                    <select
-                      value={contextItem.sourceId}
-                      onChange={(event) =>
-                        canvas.changeDrawnWindowType(contextItem.id, event.target.value)
-                      }
-                    >
-                      <option value="">No type (default)</option>
-                      {contextIsFlyScreen ? (
-                        <option value="fly-screen-2rail">Fly screen - Soleal - GYn</option>
-                      ) : contextIsHingeWindow ? (
-                        <option value="hinged-window-soleal-fyn">
-                          Hinged System - Soleal - FYn
-                        </option>
-                      ) : contextIsFixedWindow ? (
-                        <option value="fixed-window">Fixed window - Soleal - FYn</option>
-                      ) : contextIsTiltAndTurn ? (
-                        <option value="tilt-and-turn-soleal-fyn">
-                          Tilt and Turn - Soleal - FYn
-                        </option>
-                      ) : (
-                        <option value="soleal-gyn-2rail">2 Rail System - Soleal - GYn</option>
-                      )}
-                    </select>
-                  </label>
-                )}
-                {contextItem.kind === "assembly" && contextItem.sourceId && (
-                  <section className="type-parameters" aria-label="Window type parameters">
-                    <strong>Type parameters</strong>
-                    {!contextIsFlyScreen && (
-                      <>
-                        {!contextIsTiltAndTurn && !contextIsFixedWindow && (
-                          <label>
-                            Number of leaves
-                            <select
-                              value={contextItem.leaves ?? (contextIsHingeWindow ? 1 : 2)}
-                              onChange={(event) =>
-                                canvas.updateRealJoinSettings(contextItem.id, {
-                                  leaves: Number(event.target.value) as 1 | 2 | 3 | 4,
-                                })
-                              }
-                            >
-                              {contextIsHingeWindow ? (
-                                <>
-                                  <option value={1}>1 leaf</option>
-                                  <option value={2}>2 leaves</option>
-                                </>
-                              ) : (
-                                <>
-                                  <option value={2}>2 leaves</option>
-                                  <option value={3}>3 leaves</option>
-                                  <option value={4}>4 leaves</option>
-                                </>
-                              )}
-                            </select>
-                          </label>
-                        )}
-                        {contextSupportsFynLeafSize && (
-                          <label>
-                            Leaf size
-                            <select
-                              value={contextItem.leafSize ?? "small"}
-                              onChange={(event) =>
-                                canvas.updateRealJoinSettings(contextItem.id, {
-                                  leafSize: event.target.value as "small" | "big",
-                                })
-                              }
-                            >
-                              <option value="small">Small leaf</option>
-                              <option value="big">Big leaf</option>
-                            </select>
-                          </label>
-                        )}
-                        {(contextIsHingeWindow || contextIsFixedWindow || contextIsTiltAndTurn) && (
-                          <label>
-                            Frame size
-                            <select
-                              value={contextItem.frameSize ?? "small"}
-                              onChange={(event) =>
-                                canvas.updateRealJoinSettings(contextItem.id, {
-                                  frameSize: event.target.value as "small" | "big",
-                                })
-                              }
-                            >
-                              <option value="small">Small frame</option>
-                              <option value="big">Big frame</option>
-                            </select>
-                          </label>
-                        )}
-                        {contextSupportsOpeningType && (
-                          <label>
-                            Opening type
-                            <select
-                              value={contextItem.openingType ?? "window"}
-                              onChange={(event) =>
-                                canvas.updateRealJoinSettings(contextItem.id, {
-                                  openingType: event.target.value as "window" | "door",
-                                })
-                              }
-                            >
-                              <option value="window">Window</option>
-                              <option value="door">Door</option>
-                            </select>
-                          </label>
-                        )}
-                        <label>
-                          Architrave
-                          <select
-                            value={contextItem.hasArchitrave ? "with" : "without"}
-                            onChange={(event) => {
-                              const value = event.target.value === "with";
-                              canvas.updateCombinationGlazedSettings(contextItem.id, {
-                                hasArchitrave: value,
-                              });
-                              canvas.updateRealJoinSettings(contextItem.id, {
-                                hasArchitrave: value,
-                              });
-                            }}
-                          >
-                            <option value="without">Without architrave</option>
-                            <option value="with">With architrave</option>
-                          </select>
-                        </label>
-                        <label>
-                          Reinforcement
-                          <select
-                            value={contextItem.reinforced ? "reinforced" : "not-reinforced"}
-                            onChange={(event) =>
-                              canvas.updateRealJoinSettings(contextItem.id, {
-                                reinforced: event.target.value === "reinforced",
-                              })
-                            }
-                          >
-                            <option value="not-reinforced">Not reinforced</option>
-                            <option value="reinforced">Reinforced</option>
-                          </select>
-                        </label>
-                        <label>
-                          Architrave allowance
-                          <select
-                            value={contextItem.hasArchitraveAllowance ? "with" : "without"}
-                            onChange={(event) => {
-                              const value = event.target.value === "with";
-                              canvas.updateCombinationGlazedSettings(contextItem.id, {
-                                hasArchitraveAllowance: value,
-                              });
-                              canvas.updateRealJoinSettings(contextItem.id, {
-                                hasArchitraveAllowance: value,
-                              });
-                            }}
-                          >
-                            <option value="without">Without architrave allowance</option>
-                            <option value="with">With architrave allowance</option>
-                          </select>
-                        </label>
-                      </>
-                    )}
-                    <label>
-                      Coating
-                      <select
-                        value={contextItem.hasCoating ? "with" : "without"}
-                        onChange={(event) =>
-                          canvas.updateRealJoinSettings(contextItem.id, {
-                            hasCoating: event.target.value === "with",
-                          })
-                        }
-                      >
-                        <option value="without">Without coating</option>
-                        <option value="with">With coating</option>
-                      </select>
-                    </label>
-                  </section>
-                )}
-              </div>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => {
-                  canvas.setItemMaterialPanelId(contextItem.id);
-                  canvas.setTakeoffPanel("material");
-                  canvas.setContextMenu(null);
-                }}
-              >
-                Material
-              </button>
-              <button
-                className="context-delete"
-                onClick={() => {
-                  canvas.deleteCanvasItem(contextItem.id);
-                  setSelectedItemId(null);
-                  canvas.setContextMenu(null);
-                }}
-              >
-                <Icon name="trash" size={15} /> Delete item
-              </button>
-            </section>
+            <CanvasContextMenu
+              canvas={canvas}
+              contextItem={contextItem}
+              contextCombinationSize={contextCombinationSize}
+              contextIsFlyScreen={contextIsFlyScreen}
+              contextIsHingeWindow={contextIsHingeWindow}
+              contextIsFixedWindow={contextIsFixedWindow}
+              contextIsTiltAndTurn={contextIsTiltAndTurn}
+              contextSupportsFynLeafSize={contextSupportsFynLeafSize}
+              contextSupportsOpeningType={contextSupportsOpeningType}
+              updateProject={updateProject}
+              setSelectedItemId={setSelectedItemId}
+            />
           )}
-          <div className="project-canvas-tabs" role="tablist" aria-label="Project canvases">
+          <div
+            className="flex items-center gap-1.5 flex-wrap shrink-0 h-[47px] m-0 px-2 py-1.5 border-t border-[#cedddd] bg-[#e9eeee]"
+            role="tablist"
+            aria-label="Project canvases"
+          >
             {(project.canvases ?? [{ id: "opening-1", name: "Opening 1", items: project.items }]).map(
               (c) => (
                 <div
                   key={c.id}
-                  className={`project-canvas-tab ${c.id === selectedCanvasId ? "active" : ""}`}
+                  className={`flex overflow-hidden border rounded-[5px] bg-white ${
+                    c.id === selectedCanvasId
+                      ? "border-[#218c92] shadow-[inset_0_-2px_#218c92]"
+                      : "border-[#bfd4d5]"
+                  }`}
                 >
                   <button
                     role="tab"
                     aria-selected={c.id === selectedCanvasId}
+                    className="min-h-[30px] px-2.5 border-0 bg-transparent text-[#385c60] text-xs font-extrabold cursor-pointer"
                     onClick={() => canvas.selectProjectCanvas(c.id)}
                   >
                     {c.name}
                   </button>
                   <button
-                    className="canvas-rename"
+                    className="w-[30px] min-h-[30px] border-0 border-l border-[#d6e4e4] bg-transparent text-[#317873] grid place-items-center cursor-pointer hover:bg-[#f0f6f6]"
                     onClick={() => canvas.renameProjectCanvas(c.id)}
                     title="Rename canvas"
                   >
@@ -1193,7 +874,10 @@ export function CanvasScreen({
                 </div>
               ),
             )}
-            <button className="add-canvas-tab" onClick={canvas.addProjectCanvas}>
+            <button
+              className="flex items-center gap-1 min-h-[31px] px-2.5 border border-dashed border-[#79b5b0] rounded-[5px] bg-white text-[#16716b] text-xs font-extrabold cursor-pointer hover:bg-[#f0f8f7]"
+              onClick={canvas.addProjectCanvas}
+            >
               <Icon name="plus" size={14} /> New opening
             </button>
           </div>
@@ -1251,7 +935,7 @@ export function CanvasScreen({
                 </strong>
                 {canvas.takeoffPanel === "material" && takeoff.itemMaterialPanel && (
                   <button
-                    className="takeoff-modify"
+                    className="ml-auto px-3 min-w-[70px] min-h-[30px] border border-[#63cdd2] rounded bg-[#15535d] text-[#edffff] text-xs font-extrabold cursor-pointer hover:brightness-110"
                     onClick={() => {
                       if (!canvas.editingItemMaterial) canvas.setTakeoffPanelWidth(620);
                       canvas.setEditingItemMaterial((editing) => !editing);
@@ -1276,6 +960,7 @@ export function CanvasScreen({
                   </b>
                 )}
                 <button
+                  type="button"
                   onClick={() => {
                     canvas.setTakeoffPanel(null);
                     canvas.setItemMaterialPanelId(null);
@@ -1283,22 +968,25 @@ export function CanvasScreen({
                     if (canvas.takeoffPanel === "glassLibrary")
                       canvas.setSelectedGlassMaterialId(null);
                   }}
+                  aria-label="Close takeoff panel"
                 >
                   ×
                 </button>
               </header>
               {canvas.takeoffPanel === "material" &&
                 (takeoff.itemMaterialPanel ? (
-                  <div className="drawing-takeoff-sections">
-                    <section>
-                      <h2>Glass</h2>
+                  <div className="grid gap-3.5">
+                    <section className="border border-[#516b72] rounded-[5px] p-2.5">
+                      <h2 className="m-0 mb-2 text-[#dff8f6] text-sm uppercase tracking-[0.06em] font-bold">Glass</h2>
                       {takeoff.itemGlassTakeoff.length ? (
                         <div className="takeoff-list">
                           {takeoff.itemGlassTakeoff.map(({ material, quantity, total }) => (
                             <div
                               key={material.id}
-                              className={`takeoff-row drawing-material-row ${
-                                canvas.editingItemMaterial ? "editing" : ""
+                              className={`takeoff-row items-center gap-2 ${
+                                canvas.editingItemMaterial
+                                  ? "!grid !grid-cols-[42px_minmax(0,1fr)_minmax(150px,1fr)_auto]"
+                                  : "!grid !grid-cols-[42px_minmax(0,1fr)_auto]"
                               }`}
                             >
                               <Sketch path={material.sketch} label={material.name} />
@@ -1317,7 +1005,7 @@ export function CanvasScreen({
                                   /m²
                                 </small>
                                 {takeoff.itemMaterialPanel?.materialAdjustments?.[material.id] && (
-                                  <small className="adjustment-note">
+                                  <small className="text-[#71e4d8] font-extrabold">
                                     Modified:{" "}
                                     {takeoff.itemMaterialPanel.materialAdjustments[material.id]}
                                   </small>
@@ -1325,7 +1013,7 @@ export function CanvasScreen({
                               </span>
                               {canvas.editingItemMaterial && (
                                 <input
-                                  className="material-adjustment-input"
+                                  className="w-full min-h-[30px] bg-[#152125] text-[#f5ffff] border border-[#749499] rounded px-[7px] py-1 text-xs outline-none"
                                   defaultValue={
                                     takeoff.itemMaterialPanel?.materialAdjustments?.[material.id] ??
                                     ""
@@ -1361,16 +1049,18 @@ export function CanvasScreen({
                         <p className="takeoff-empty">No glass selected.</p>
                       )}
                     </section>
-                    <section>
-                      <h2>Material</h2>
+                    <section className="border border-[#516b72] rounded-[5px] p-2.5">
+                      <h2 className="m-0 mb-2 text-[#dff8f6] text-sm uppercase tracking-[0.06em] font-bold">Material</h2>
                       {takeoff.itemMaterialTakeoff.length ? (
                         <div className="takeoff-list">
                           {takeoff.itemMaterialTakeoff.map(
                             ({ material, reference, quantity, total }) => (
                               <div
                                 key={material.id}
-                                className={`takeoff-row drawing-material-row glass-takeoff-row ${
-                                  canvas.editingItemMaterial ? "editing" : ""
+                                className={`takeoff-row items-center gap-2 ${
+                                  canvas.editingItemMaterial
+                                    ? "!grid !grid-cols-[42px_minmax(0,1fr)_minmax(150px,1fr)_auto]"
+                                    : "!grid !grid-cols-[42px_minmax(0,1fr)_auto]"
                                 }`}
                               >
                                 <Sketch path={material.sketch} label={material.name} />
@@ -1391,7 +1081,7 @@ export function CanvasScreen({
                                   {takeoff.itemMaterialPanel?.materialAdjustments?.[
                                     material.id
                                   ] && (
-                                    <small className="adjustment-note">
+                                    <small className="text-[#71e4d8] font-extrabold">
                                       Modified:{" "}
                                       {takeoff.itemMaterialPanel.materialAdjustments[material.id]}
                                     </small>
@@ -1399,7 +1089,7 @@ export function CanvasScreen({
                                 </span>
                                 {canvas.editingItemMaterial && (
                                   <input
-                                    className="material-adjustment-input"
+                                    className="w-full min-h-[30px] bg-[#152125] text-[#f5ffff] border border-[#749499] rounded px-[7px] py-1 text-xs outline-none"
                                     defaultValue={
                                       takeoff.itemMaterialPanel?.materialAdjustments?.[
                                         material.id
@@ -1434,7 +1124,7 @@ export function CanvasScreen({
                           )}
                         </div>
                       ) : (
-                        <p className="takeoff-empty">No type selected.</p>
+                        <p className="takeoff-empty">No components for this opening type.</p>
                       )}
                     </section>
                   </div>

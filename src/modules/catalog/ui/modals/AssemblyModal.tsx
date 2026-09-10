@@ -188,54 +188,72 @@ export function AssemblyModal({
   const currentAssembly = assemblies.find((assembly) => assembly.id === modalId);
 
   return (
-    <div className="dialog-backdrop" onMouseDown={onClose}>
+    <div
+      className="fixed inset-0 z-20 grid place-items-center p-6 bg-[#0f282a8c]"
+      onMouseDown={onClose}
+    >
       <section
-        className="material-dialog assembly-dialog"
+        className="w-[min(1400px,calc(100vw-32px))] min-w-[min(760px,calc(100vw-32px))] max-w-[calc(100vw-32px)] max-h-[calc(100vh-28px)] resize-x overflow-auto rounded-[13px] bg-white shadow-[0_25px_75px_#00000047]"
         role="dialog"
         aria-modal="true"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="dialog-header">
+        <div className="flex items-center justify-between p-[20px_25px] border-b border-[#e3ebeb]">
           <div>
-            <p className="eyebrow">{modalId ? "Edit" : "New"} item</p>
-            <h2>{modalId ? "Edit" : "Add"} assembly</h2>
+            <p className="m-0 mb-1.5 text-[#23736f] text-[11px] font-extrabold uppercase tracking-[0.09em]">
+              {modalId ? "Edit" : "New"} item
+            </p>
+            <h2 className="m-0 text-[#1a3539] text-[21px] font-bold">
+              {modalId ? "Edit" : "Add"} assembly
+            </h2>
           </div>
-          <div className="dialog-header-actions">
-            <div className="copy-from-menu">
+          <div className="flex items-center gap-[9px]">
+            <div className="relative">
               <button
                 type="button"
-                className="secondary-button copy-from-button"
+                className="min-h-[34px] inline-flex items-center justify-center gap-2 px-4 rounded-[8px] font-bold border border-[#cad9da] bg-white text-[#345156] hover:bg-[#f0f6f6] cursor-pointer transition-colors"
                 onClick={() => setCopyFromAssemblyOpen((open) => !open)}
               >
                 Copy from
               </button>
               {copyFromAssemblyOpen && (
-                <div className="copy-from-options" role="menu">
+                <div
+                  className="absolute z-30 top-[calc(100%+6px)] right-0 grid min-w-[270px] max-h-[360px] overflow-auto p-[5px] border border-[#9ccbc6] rounded-[7px] bg-white shadow-[0_10px_24px_rgba(24,61,64,0.22)]"
+                  role="menu"
+                >
                   {assemblies
                     .filter((assembly) => assembly.id !== modalId)
                     .map((assembly) => (
                       <button
                         type="button"
+                        className="grid gap-0.5 p-[8px_10px] border-0 rounded-[4px] bg-white text-[#214a4d] text-left text-xs font-bold hover:bg-[#e6f4f1] cursor-pointer transition-colors"
                         key={assembly.id}
                         onClick={() => copyAssemblyContentFrom(assembly.id)}
                       >
                         {assembly.name}
-                        <small>{assembly.code}</small>
+                        <small className="text-[#71878a] font-mono text-[10px] font-semibold">{assembly.code}</small>
                       </button>
                     ))}
                 </div>
               )}
             </div>
-            <button className="icon-button" onClick={onClose} aria-label="Close">
+            <button
+              className="w-[38px] h-[38px] grid place-items-center rounded-[7px] border-0 bg-transparent text-[#577176] hover:bg-[#edf4f4] transition-colors cursor-pointer"
+              onClick={onClose}
+              aria-label="Close"
+            >
               <Icon name="close" />
             </button>
           </div>
         </div>
         <form onSubmit={onSave}>
-          <div className="dialog-form">
-            <label>
-              Name <span>*</span>
+          <div className="grid gap-[15px] p-[25px]">
+            <label className="grid gap-1.5 text-[#4c696d] text-xs font-bold">
+              <span>
+                Name <span className="text-[#b73030]">*</span>
+              </span>
               <input
+                className="w-full h-[39px] px-2.5 border border-[#cbd9db] rounded-md bg-white text-[#19363a] outline-none focus:border-[#27827d]"
                 autoFocus
                 required
                 value={formName}
@@ -243,68 +261,74 @@ export function AssemblyModal({
                 placeholder="Enter assembly name"
               />
             </label>
-            <div className="two-fields">
-              <label>
+            <div className="grid grid-cols-2 max-[620px]:grid-cols-1 gap-2.5">
+              <label className="grid gap-1.5 text-[#4c696d] text-xs font-bold">
                 Code
                 <input
+                  className="w-full h-[39px] px-2.5 border border-[#cbd9db] rounded-md bg-white text-[#19363a] outline-none focus:border-[#27827d]"
                   value={formCode}
                   onChange={(e) => setFormCode(e.target.value)}
                   placeholder="Optional code"
                 />
               </label>
-              <label>
+              <label className="grid gap-1.5 text-[#4c696d] text-xs font-bold">
                 Category
                 <input
+                  className="w-full h-[39px] px-2.5 border border-[#cbd9db] rounded-md bg-white text-[#19363a] outline-none focus:border-[#27827d]"
                   value={formCategory}
                   onChange={(e) => setFormCategory(e.target.value)}
                   placeholder="e.g. Window"
                 />
               </label>
             </div>
-            <div className="two-fields">
-              <label>
+            <div className="grid grid-cols-2 max-[620px]:grid-cols-1 gap-2.5">
+              <label className="grid gap-1.5 text-[#4c696d] text-xs font-bold">
                 Manufacturer / system
                 <input
+                  className="w-full h-[39px] px-2.5 border border-[#cbd9db] rounded-md bg-white text-[#19363a] outline-none focus:border-[#27827d]"
                   value={formManufacturer}
                   onChange={(e) => setFormManufacturer(e.target.value)}
                   placeholder="e.g. Technal"
                 />
               </label>
-              <label className="assembly-colour-field">
+              <label className="grid gap-1.5 text-[#4c696d] text-xs font-bold">
                 Drawing colour
-                <span className="assembly-colour-picker">
+                <span className="flex items-center gap-2 flex-wrap min-h-[39px] px-2 border border-[#c8dada] rounded-md bg-white">
                   {assemblyColourOptions.map((colour) => (
                     <button
                       type="button"
                       key={colour}
-                      className={assemblyColor.toUpperCase() === colour ? "selected" : ""}
+                      className={`w-6 h-6 p-0 rounded border-2 border-transparent cursor-pointer ${
+                        assemblyColor.toUpperCase() === colour ? "ring-2 ring-[#164e52] ring-offset-2" : ""
+                      }`}
                       style={{ backgroundColor: colour }}
                       onClick={() => setAssemblyColor(colour)}
                       aria-label={`Use ${colour} drawing colour`}
                       aria-pressed={assemblyColor.toUpperCase() === colour}
                     />
                   ))}
-                  <code>{assemblyColor.toUpperCase()}</code>
+                  <code className="ml-auto text-xs text-[#35595d]">{assemblyColor.toUpperCase()}</code>
                 </span>
               </label>
             </div>
 
-            <fieldset className="assembly-values-section">
-              <legend>Values</legend>
-              <p>
+            <fieldset className="mt-1 p-3.5 border border-[#d9e4e5] rounded-lg bg-[#f7fbfb]">
+              <legend className="px-1.5 text-[#4c696d] text-xs font-bold">Values</legend>
+              <p className="mt-1 mb-2.5 text-[#71868a] text-xs">
                 These values are supplied automatically by each window on the canvas and can be
                 used directly in material formulas. Editable defaults are applied to newly placed
                 openings; calculated values remain read-only.
               </p>
-              <div className="assembly-values-grid">
+              <div className="grid grid-cols-2 max-[620px]:grid-cols-1 gap-2">
                 {assemblyFormulaValuesForEditor.map((value) => {
                   const setDefault = (change: Partial<AssemblyCanvasDefaults>) =>
                     setAssemblyCanvasDefaults((current) => ({ ...current, ...change }));
                   const defaultSetting =
                     value.name === "Width" ? (
-                      <label>
+                      <label className="flex items-center gap-1.5 mt-1 text-[#527072] text-[10px] font-bold">
                         Default setting
                         <input
+                          className="min-w-0 flex-1 px-1.5 py-1 h-7 border border-[#bdd8d6] rounded bg-white text-[#174e51] text-[11px] outline-none focus:border-[#27827d]"
                           type="number"
                           min="200"
                           max={MAX_OPENING_DIMENSION}
@@ -321,9 +345,10 @@ export function AssemblyModal({
                         <span>mm</span>
                       </label>
                     ) : value.name === "Height" ? (
-                      <label>
+                      <label className="flex items-center gap-1.5 mt-1 text-[#527072] text-[10px] font-bold">
                         Default setting
                         <input
+                          className="min-w-0 flex-1 px-1.5 py-1 h-7 border border-[#bdd8d6] rounded bg-white text-[#174e51] text-[11px] outline-none focus:border-[#27827d]"
                           type="number"
                           min="200"
                           max={MAX_OPENING_DIMENSION}
@@ -340,9 +365,10 @@ export function AssemblyModal({
                         <span>mm</span>
                       </label>
                     ) : value.name === "NumberOfLeaves" ? (
-                      <label>
+                      <label className="flex items-center gap-1.5 mt-1 text-[#527072] text-[10px] font-bold">
                         Default setting
                         <select
+                          className="min-w-0 flex-1 px-1.5 py-1 h-7 border border-[#bdd8d6] rounded bg-white text-[#174e51] text-[11px] outline-none focus:border-[#27827d]"
                           value={assemblyCanvasDefaults.leaves ?? 2}
                           onChange={(event) =>
                             setDefault({
@@ -357,9 +383,10 @@ export function AssemblyModal({
                         </select>
                       </label>
                     ) : value.name === "OpeningType" ? (
-                      <label>
+                      <label className="flex items-center gap-1.5 mt-1 text-[#527072] text-[10px] font-bold">
                         Default setting
                         <select
+                          className="min-w-0 flex-1 px-1.5 py-1 h-7 border border-[#bdd8d6] rounded bg-white text-[#174e51] text-[11px] outline-none focus:border-[#27827d]"
                           value={assemblyCanvasDefaults.openingType ?? "window"}
                           onChange={(event) =>
                             setDefault({
@@ -372,9 +399,10 @@ export function AssemblyModal({
                         </select>
                       </label>
                     ) : value.name === "LeafSize" ? (
-                      <label>
+                      <label className="flex items-center gap-1.5 mt-1 text-[#527072] text-[10px] font-bold">
                         Default setting
                         <select
+                          className="min-w-0 flex-1 px-1.5 py-1 h-7 border border-[#bdd8d6] rounded bg-white text-[#174e51] text-[11px] outline-none focus:border-[#27827d]"
                           value={assemblyCanvasDefaults.leafSize ?? "small"}
                           onChange={(event) =>
                             setDefault({
@@ -387,9 +415,10 @@ export function AssemblyModal({
                         </select>
                       </label>
                     ) : value.name === "FrameSize" ? (
-                      <label>
+                      <label className="flex items-center gap-1.5 mt-1 text-[#527072] text-[10px] font-bold">
                         Default setting
                         <select
+                          className="min-w-0 flex-1 px-1.5 py-1 h-7 border border-[#bdd8d6] rounded bg-white text-[#174e51] text-[11px] outline-none focus:border-[#27827d]"
                           value={assemblyCanvasDefaults.frameSize ?? "small"}
                           onChange={(event) =>
                             setDefault({
@@ -402,9 +431,10 @@ export function AssemblyModal({
                         </select>
                       </label>
                     ) : value.name === "ArchitraveAllowance" ? (
-                      <label>
+                      <label className="flex items-center gap-1.5 mt-1 text-[#527072] text-[10px] font-bold">
                         Default setting
                         <select
+                          className="min-w-0 flex-1 px-1.5 py-1 h-7 border border-[#bdd8d6] rounded bg-white text-[#174e51] text-[11px] outline-none focus:border-[#27827d]"
                           value={assemblyCanvasDefaults.hasArchitraveAllowance ? "with" : "without"}
                           onChange={(event) =>
                             setDefault({ hasArchitraveAllowance: event.target.value === "with" })
@@ -415,9 +445,10 @@ export function AssemblyModal({
                         </select>
                       </label>
                     ) : value.name === "Architrave" ? (
-                      <label>
+                      <label className="flex items-center gap-1.5 mt-1 text-[#527072] text-[10px] font-bold">
                         Default setting
                         <select
+                          className="min-w-0 flex-1 px-1.5 py-1 h-7 border border-[#bdd8d6] rounded bg-white text-[#174e51] text-[11px] outline-none focus:border-[#27827d]"
                           value={assemblyCanvasDefaults.hasArchitrave ? "with" : "without"}
                           onChange={(event) =>
                             setDefault({ hasArchitrave: event.target.value === "with" })
@@ -428,9 +459,10 @@ export function AssemblyModal({
                         </select>
                       </label>
                     ) : value.name === "Reinforcement" ? (
-                      <label>
+                      <label className="flex items-center gap-1.5 mt-1 text-[#527072] text-[10px] font-bold">
                         Default setting
                         <select
+                          className="min-w-0 flex-1 px-1.5 py-1 h-7 border border-[#bdd8d6] rounded bg-white text-[#174e51] text-[11px] outline-none focus:border-[#27827d]"
                           value={assemblyCanvasDefaults.reinforced ? "with" : "without"}
                           onChange={(event) =>
                             setDefault({ reinforced: event.target.value === "with" })
@@ -441,9 +473,10 @@ export function AssemblyModal({
                         </select>
                       </label>
                     ) : value.name === "Coating" ? (
-                      <label>
+                      <label className="flex items-center gap-1.5 mt-1 text-[#527072] text-[10px] font-bold">
                         Default setting
                         <select
+                          className="min-w-0 flex-1 px-1.5 py-1 h-7 border border-[#bdd8d6] rounded bg-white text-[#174e51] text-[11px] outline-none focus:border-[#27827d]"
                           value={assemblyCanvasDefaults.hasCoating ? "with" : "without"}
                           onChange={(event) =>
                             setDefault({ hasCoating: event.target.value === "with" })
@@ -454,13 +487,13 @@ export function AssemblyModal({
                         </select>
                       </label>
                     ) : (
-                      <span className="calculated-default">Calculated / read-only</span>
+                      <span className="mt-1 px-1.5 py-1 rounded bg-[#edf2f2] text-[#6d7f80] text-[10px] font-bold">Calculated / read-only</span>
                     );
                   return (
-                    <div key={value.name}>
-                      <b>{value.label}</b>
-                      <code>{value.name}</code>
-                      <small>{value.description}</small>
+                    <div className="grid gap-1 p-2.5 border border-[#d6e7e6] rounded-md bg-white" key={value.name}>
+                      <b className="text-[#28575b] text-xs">{value.label}</b>
+                      <code className="w-max max-w-full px-1.5 py-0.5 rounded bg-[#e6f3f1] text-[#176c68] font-mono text-[10px] truncate">{value.name}</code>
+                      <small className="text-[10px] leading-tight text-[#71878a]">{value.description}</small>
                       {defaultSetting}
                     </div>
                   );
@@ -828,14 +861,14 @@ export function AssemblyModal({
                 when both openings resolve to the same frame type. Conditions can use values such
                 as <b>FrameSize</b>, <b>Reinforcement</b>, <b>LeafSize</b>, and <b>Width</b>.
               </p>
-              <div className="frame-type-table" role="table" aria-label="Assembly frame types">
-                <div className="frame-type-header" role="row">
+              <div className="overflow-auto border border-[#c6dada] rounded-md" role="table" aria-label="Assembly frame types">
+                <div className="grid grid-cols-[minmax(170px,0.8fr)_minmax(320px,1.7fr)_34px] gap-2 items-center px-2 py-1.5 bg-[#172126] text-[#eefafa] text-[10px] font-extrabold uppercase" role="row">
                   <span>Type</span>
                   <span>Condition</span>
                   <span aria-label="Actions" />
                 </div>
                 {frameTypes.map((row) => (
-                  <div className="frame-type-row" role="row" key={row.id}>
+                  <div className="grid grid-cols-[minmax(170px,0.8fr)_minmax(320px,1.7fr)_34px] gap-2 items-center px-2 py-1.5 border-t border-[#d7e6e5] bg-[#f7fbfb]" role="row" key={row.id}>
                     <input
                       value={row.type}
                       onChange={(event) =>
@@ -847,6 +880,7 @@ export function AssemblyModal({
                       }
                       placeholder="e.g. Small reinforced"
                       aria-label="Frame type"
+                      className="w-full h-[31px] min-w-0 px-2 py-1 border border-[#c7d9da] rounded bg-white text-[#244a4e] text-[11px] outline-none focus:border-[#56aeb8]"
                     />
                     <input
                       value={row.condition}
@@ -861,10 +895,11 @@ export function AssemblyModal({
                       }
                       placeholder="e.g. (FrameSize = 0) AND (Reinforcement = 1)"
                       aria-label={`Condition for ${row.type || "frame type"}`}
+                      className="w-full h-[31px] min-w-0 px-2 py-1 border border-[#c7d9da] rounded bg-white text-[#244a4e] text-[11px] outline-none focus:border-[#56aeb8]"
                     />
                     <button
                       type="button"
-                      className="remove-frame-type"
+                      className="w-7 h-7 p-0 border-0 rounded bg-[#fdebed] text-[#b1313a] text-lg leading-none cursor-pointer flex items-center justify-center hover:bg-[#fbd3d6]"
                       onClick={() => setFrameTypes((rows) => rows.filter((value) => value.id !== row.id))}
                       aria-label={`Remove ${row.type || "frame type"}`}
                     >
@@ -875,7 +910,7 @@ export function AssemblyModal({
               </div>
               <button
                 type="button"
-                className="add-frame-type"
+                className="mt-2 min-h-[31px] px-3 border border-[#76aaa5] rounded-md bg-[#e5f4f1] text-[#176c68] text-xs font-extrabold cursor-pointer hover:bg-[#d5eee9]"
                 onClick={() =>
                   setFrameTypes((rows) => [...rows, { id: makeId(), type: "", condition: "" }])
                 }
@@ -890,14 +925,14 @@ export function AssemblyModal({
                 Set the drawing name symbol and its condition. Enter only the symbol, for example{" "}
                 <b>DR</b>. The canvas assigns the number automatically: DR01, DR02.
               </p>
-              <div className="frame-type-table" role="table" aria-label="Assembly naming rules">
-                <div className="frame-type-header" role="row">
+              <div className="overflow-auto border border-[#c6dada] rounded-md" role="table" aria-label="Assembly naming rules">
+                <div className="grid grid-cols-[minmax(170px,0.8fr)_minmax(320px,1.7fr)_34px] gap-2 items-center px-2 py-1.5 bg-[#172126] text-[#eefafa] text-[10px] font-extrabold uppercase" role="row">
                   <span>Name</span>
                   <span>Condition</span>
                   <span aria-label="Actions" />
                 </div>
                 {nameRules.map((row) => (
-                  <div className="frame-type-row" role="row" key={row.id}>
+                  <div className="grid grid-cols-[minmax(170px,0.8fr)_minmax(320px,1.7fr)_34px] gap-2 items-center px-2 py-1.5 border-t border-[#d7e6e5] bg-[#f7fbfb]" role="row" key={row.id}>
                     <input
                       value={row.name}
                       onChange={(event) =>
@@ -911,6 +946,7 @@ export function AssemblyModal({
                       }
                       placeholder="e.g. DR"
                       aria-label="Name symbol"
+                      className="w-full h-[31px] min-w-0 px-2 py-1 border border-[#c7d9da] rounded bg-white text-[#244a4e] text-[11px] outline-none focus:border-[#56aeb8]"
                     />
                     <input
                       value={row.condition}
@@ -925,10 +961,11 @@ export function AssemblyModal({
                       }
                       placeholder="e.g. OpeningType = 1"
                       aria-label={`Condition for ${row.name || "name"}`}
+                      className="w-full h-[31px] min-w-0 px-2 py-1 border border-[#c7d9da] rounded bg-white text-[#244a4e] text-[11px] outline-none focus:border-[#56aeb8]"
                     />
                     <button
                       type="button"
-                      className="remove-frame-type"
+                      className="w-7 h-7 p-0 border-0 rounded bg-[#fdebed] text-[#b1313a] text-lg leading-none cursor-pointer flex items-center justify-center hover:bg-[#fbd3d6]"
                       onClick={() => setNameRules((rows) => rows.filter((value) => value.id !== row.id))}
                       aria-label={`Remove ${row.name || "name"}`}
                     >
@@ -939,7 +976,7 @@ export function AssemblyModal({
               </div>
               <button
                 type="button"
-                className="add-frame-type"
+                className="mt-2 min-h-[31px] px-3 border border-[#76aaa5] rounded-md bg-[#e5f4f1] text-[#176c68] text-xs font-extrabold cursor-pointer hover:bg-[#d5eee9]"
                 onClick={() =>
                   setNameRules((rows) => [...rows, { id: makeId(), name: "", condition: "" }])
                 }
@@ -965,16 +1002,16 @@ export function AssemblyModal({
                   currentAssembly?.id ?? modalId,
                 );
                 return (
-                  <section className="join-property-match-section" key={kind}>
-                    <strong>{title}</strong>
-                    <div className="join-property-match-table" role="table" aria-label={title}>
-                      <div className="join-property-match-header" role="row">
+                  <section className="mt-3.5" key={kind}>
+                    <strong className="block mb-1.5 text-[#176c68] text-xs">{title}</strong>
+                    <div className="overflow-auto border border-[#c6dada] rounded-md" role="table" aria-label={title}>
+                      <div className="grid grid-cols-[minmax(170px,0.8fr)_minmax(320px,1.7fr)_92px] gap-2 items-center px-2 py-1.5 bg-[#172126] text-[#eefafa] text-[10px] font-extrabold uppercase" role="row">
                         <span>Type property</span>
                         <span>Assembly type</span>
                         <span aria-label="Actions" />
                       </div>
                       {rows.map((row) => (
-                        <div className="join-property-match-row" role="row" key={row.id}>
+                        <div className="grid grid-cols-[minmax(170px,0.8fr)_minmax(320px,1.7fr)_92px] gap-2 items-center px-2 py-1.5 border-t border-[#d7e6e5] bg-[#f7fbfb]" role="row" key={row.id}>
                           <select
                             value={row.property}
                             onChange={(event) =>
@@ -983,6 +1020,7 @@ export function AssemblyModal({
                               })
                             }
                             aria-label="Property to match"
+                            className="w-full h-[31px] min-w-0 px-2 py-1 border border-[#c7d9da] rounded bg-white text-[#244a4e] text-[11px] outline-none cursor-pointer focus:border-[#56aeb8]"
                           >
                             {properties.map((property) => (
                               <option key={property.value} value={property.value}>
@@ -990,12 +1028,13 @@ export function AssemblyModal({
                               </option>
                             ))}
                           </select>
-                          <div className="join-match-assemblies">
+                          <div className="flex flex-wrap gap-1.5 max-h-[98px] overflow-auto p-0.5">
                             {assemblies.map((assembly) => (
-                              <label key={assembly.id}>
+                              <label key={assembly.id} className="flex items-center gap-1 px-1.5 py-0.5 border border-[#c7d9da] rounded bg-white text-[#244a4e] text-[11px] whitespace-nowrap">
                                 <input
                                   type="checkbox"
                                   checked={row.withAssemblyIds.includes(assembly.id)}
+                                  className="w-auto m-0"
                                   onChange={(event) =>
                                     updateJoinPropertyMatch(kind, row.id, {
                                       withAssemblyIds: event.target.checked
@@ -1007,11 +1046,11 @@ export function AssemblyModal({
                                 {assembly.name}
                               </label>
                             ))}
-                            {!assemblies.length && <small>Save an assembly type first.</small>}
+                            {!assemblies.length && <small className="text-[#637b7d] text-[11px]">Save an assembly type first.</small>}
                           </div>
                           <button
                             type="button"
-                            className="delete-join-property"
+                            className="min-h-[28px] px-2 py-1 border border-[#df9ea5] rounded bg-[#fdebed] text-[#9f2833] text-[10px] font-extrabold leading-tight cursor-pointer hover:bg-[#fbd3d6]"
                             onClick={() => removeJoinPropertyMatch(kind, row.id)}
                             aria-label={`Delete ${row.property} match rule`}
                           >
@@ -1022,7 +1061,7 @@ export function AssemblyModal({
                     </div>
                     <button
                       type="button"
-                      className="add-frame-type"
+                      className="mt-2 min-h-[31px] px-3 border border-[#76aaa5] rounded-md bg-[#e5f4f1] text-[#176c68] text-xs font-extrabold cursor-pointer hover:bg-[#d5eee9]"
                       onClick={() => addJoinPropertyMatch(kind, properties[0]?.value)}
                     >
                       Add property
@@ -1041,11 +1080,11 @@ export function AssemblyModal({
                     has a Real join on that side.
                   </p>
                   <div
-                    className="join-modification-table"
+                    className="overflow-auto border border-[#c6dada] rounded-md"
                     role="table"
                     aria-label="FYn join modification formulas"
                   >
-                    <div className="join-modification-header" role="row">
+                    <div className="grid grid-cols-[1.4fr_repeat(4,minmax(130px,1fr))] gap-2 items-center px-2 py-1.5 bg-[#172126] text-[#eefafa] text-[10px] font-extrabold uppercase" role="row">
                       <span>Material</span>
                       <span>Top join</span>
                       <span>Bottom join</span>
@@ -1061,19 +1100,19 @@ export function AssemblyModal({
                       );
                       return (
                         <div
-                          className="join-modification-row"
+                          className="grid grid-cols-[1.4fr_repeat(4,minmax(130px,1fr))] gap-2 items-center px-2 py-1.5 border-t border-[#d7e6e5] bg-[#f7fbfb]"
                           role="row"
                           key={modification.materialId}
                         >
-                          <span>
+                          <span className="grid gap-0.5 text-[11px]">
                             <b>{material?.code ?? modification.materialId}</b>
-                            <small>{material?.name ?? "Material"}</small>
+                            <small className="text-[#70878a] text-[10px]">{material?.name ?? "Material"}</small>
                           </span>
                           {(["topFormula", "bottomFormula", "leftFormula", "rightFormula"] as const).map(
                             (field) => (
                               <input
                                 key={field}
-                                className="assembly-formula-input"
+                                className="h-[31px] px-2 py-1 border border-[#c7d9da] rounded bg-white text-[#244a4e] text-[11px] outline-none focus:border-[#56aeb8]"
                                 value={modification[field]}
                                 onChange={(event) =>
                                   setJoinModifications((rows) =>
@@ -1097,10 +1136,10 @@ export function AssemblyModal({
                 </fieldset>
               )}
 
-            <section className="assembly-reference">
-              <div>
+            <section className="grid gap-2.5 p-3.5 border border-[#c8dfdc] rounded-lg bg-[#f7fbfb]">
+              <div className="grid gap-1">
                 <strong>Reference photo</strong>
-                <small>
+                <small className="text-[#71878a] text-[11px] leading-relaxed">
                   Upload a product photo to keep with this assembly. It is used as a visual
                   reference, not as a freehand drawing.
                 </small>
@@ -1108,6 +1147,7 @@ export function AssemblyModal({
               <input
                 type="file"
                 accept="image/*"
+                className="w-full text-xs"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (!file) return;
@@ -1120,12 +1160,12 @@ export function AssemblyModal({
                 <img
                   src={assemblyReferenceImage}
                   alt="Assembly reference"
-                  className="assembly-reference-preview"
+                  className="w-full max-h-[190px] object-contain border border-[#cedede] rounded-md bg-white"
                 />
               )}
-              <div className="assembly-drawing-note">
+              <div className="grid gap-1 pt-2.5 border-t border-[#dce9e8] text-[#30585b] text-xs">
                 <strong>Technical drawing</strong>
-                <small>
+                <small className="text-[#71878a] text-[11px] leading-relaxed">
                   This is defined by the assembly type. Send a reference drawing when you need it
                   changed.
                 </small>
@@ -1133,26 +1173,41 @@ export function AssemblyModal({
             </section>
           </div>
 
-          <div className="dialog-footer">
+          <div className="flex items-center justify-end gap-[9px] p-[20px_25px] border-t border-[#e3ebeb]">
             {modalId ? (
               <>
-                <span className={`assembly-autosave-status ${assemblyAutoSaveStatus}`}>
+                <span
+                  className={`mr-auto text-[12px] font-extrabold ${
+                    assemblyAutoSaveStatus === "saving" ? "text-[#9a711d]" : "text-[#28736d]"
+                  }`}
+                >
                   {assemblyAutoSaveStatus === "saving"
                     ? "Saving changes…"
                     : workspaceSaveStatus === "error"
                     ? "Save failed"
                     : "Saved"}
                 </span>
-                <button type="button" className="primary-button" onClick={onClose}>
+                <button
+                  type="button"
+                  className="min-h-[42px] inline-flex items-center justify-center gap-2 px-4 rounded-[8px] font-bold border border-[#146c68] bg-[#176f6b] text-white shadow-[0_2px_5px_#164e4d2e] hover:bg-[#105d59] cursor-pointer transition-colors"
+                  onClick={onClose}
+                >
                   Exit
                 </button>
               </>
             ) : (
               <>
-                <button type="button" className="secondary-button" onClick={onClose}>
+                <button
+                  type="button"
+                  className="min-h-[42px] inline-flex items-center justify-center gap-2 px-4 rounded-[8px] font-bold border border-[#cad9da] bg-white text-[#345156] hover:bg-[#f0f6f6] cursor-pointer transition-colors"
+                  onClick={onClose}
+                >
                   Cancel
                 </button>
-                <button className="primary-button" type="submit">
+                <button
+                  className="min-h-[42px] inline-flex items-center justify-center gap-2 px-4 rounded-[8px] font-bold border border-[#146c68] bg-[#176f6b] text-white shadow-[0_2px_5px_#164e4d2e] hover:bg-[#105d59] cursor-pointer transition-colors"
+                  type="submit"
+                >
                   Create assembly
                 </button>
               </>

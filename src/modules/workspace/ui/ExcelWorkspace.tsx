@@ -14,17 +14,19 @@ export function ExcelWorkspace() {
   ];
 
   return (
-    <section className="excel-page" aria-labelledby="excel-page-title">
-      <header className="page-heading">
+    <section className="min-h-[calc(100vh-69px)] bg-[#f5f7f8]" aria-labelledby="excel-page-title">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-5 pt-8 pb-5 md:px-12 md:pt-10">
         <div>
-          <p className="eyebrow">Standalone test area</p>
-          <h1 id="excel-page-title">Excel</h1>
-          <p>Syncfusion Spreadsheet is running independently from your tender workspace.</p>
+          <p className="m-0 mb-1.5 text-[#23736f] text-[11px] font-extrabold uppercase tracking-[0.09em]">Standalone test area</p>
+          <h1 id="excel-page-title" className="m-0 text-[#11262a] text-4xl tracking-[-0.035em] font-bold">Excel</h1>
+          <p className="max-w-[650px] mt-1.5 mb-0 text-[#61777b] text-sm">Syncfusion Spreadsheet is running independently from your tender workspace.</p>
         </div>
       </header>
-      <div className="excel-workspace">
+      <div className="min-h-[660px] mx-5 md:mx-12 mb-10 overflow-hidden border border-[#cbdcdc] rounded-[10px] bg-white shadow-[0_10px_28px_rgba(22,61,65,0.08)]">
         <SpreadsheetComponent
           aria-label="Excel spreadsheet test workspace"
+          height="660px"
+          className="!border-0"
           showRibbon
           showFormulaBar
           showSheetTabs

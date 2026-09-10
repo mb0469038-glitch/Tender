@@ -86,7 +86,7 @@ export function App() {
   }
 
   return (
-    <div className={`app-shell ${state.sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+    <div className="min-h-screen flex">
       <AppSidebar
         sidebarCollapsed={state.sidebarCollapsed}
         setSidebarCollapsed={state.setSidebarCollapsed}
@@ -111,7 +111,7 @@ export function App() {
         recentWorkspaceSaves={state.persistence.recentWorkspaceSaves}
       />
 
-      <main className="main-content">
+      <main className="min-w-0 flex-1 max-[900px]:w-full">
         <AppTopbar
           screen={state.screen}
           activeDatabaseId={state.activeDatabaseId}

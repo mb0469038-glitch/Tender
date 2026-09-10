@@ -333,10 +333,12 @@ export function PriceBook({
 
   return (
     <div className={isStockView ? "stock-book" : undefined}>
-      <section className="page-heading">
+      <section className="flex items-end justify-between gap-6 p-[41px_48px_27px] max-[700px]:flex-col max-[700px]:items-start max-[700px]:px-5 max-[700px]:pt-8">
         <div>
-          <h1>{isStockView ? "Stock" : companyDatabase ? `${companyDatabase.name} Database` : "Soleal Database"}</h1>
-          <p className="intro">
+          <h1 className="m-0 text-[#11262a] text-[36px] font-bold tracking-[-0.035em]">
+            {isStockView ? "Stock" : companyDatabase ? `${companyDatabase.name} Database` : "Soleal Database"}
+          </h1>
+          <p className="max-w-[650px] mt-2.5 mb-0 text-[#5e7478] text-[15px] leading-relaxed">
             {isStockView
               ? "The same material tables as the estimation database, showing stock length and available quantity."
               : companyDatabase
@@ -346,24 +348,25 @@ export function PriceBook({
         </div>
         <button
           type="button"
-          className="primary-button"
+          className="min-h-[42px] inline-flex items-center justify-center gap-2 px-4 rounded-[8px] font-bold border border-[#146c68] bg-[#176f6b] text-white shadow-[0_2px_5px_#164e4d2e] hover:bg-[#105d59] cursor-pointer transition-colors"
           onClick={() => openNewCompanyTable(companyDatabase ?? { id: "prices", name: "Soleal" })}
         >
           <Icon name="plus" /> Add table
         </button>
       </section>
-      <section className="library-panel price-book-panel">
-        <div className="toolbar">
-          <label className="search-field">
+      <section className="mx-12 mb-9 p-[18px] border border-[#dfe8e8] rounded-[13px] bg-white shadow-[0_8px_27px_#183f4110] grid gap-3.5 max-[700px]:mx-5">
+        <div className="flex items-center justify-between gap-4 pb-[18px] flex-wrap">
+          <label className="w-[min(330px,100%)] h-10 flex items-center gap-2 px-3 border border-[#d5e0e1] rounded-[7px] text-[#698086] focus-within:border-[#27827d]">
             <Icon name="search" size={17} />
             <span className="sr-only">Search</span>
             <input
+              className="w-full border-0 outline-none bg-transparent text-[#18363a] text-sm"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={`Search ${companyDatabase ? `${companyDatabase.name} database` : "Soleal database"}`}
             />
           </label>
-          <label className="assembly-type-filter">
+          <label className="flex items-center gap-2 text-xs font-bold text-[#4c696d] [&>select]:h-10 [&>select]:px-2.5 [&>select]:border [&>select]:border-[#d5e0e1] [&>select]:rounded-[7px] [&>select]:bg-white [&>select]:text-[#18363a]">
             <span>Assembly type</span>
             <select value={assemblyTypeFilter} onChange={(event) => setAssemblyTypeFilter(event.target.value)}>
               <option value="">All assembly types</option>
@@ -374,16 +377,30 @@ export function PriceBook({
               ))}
             </select>
           </label>
-          <span className="item-count">{filtered.length} materials</span>
-          <span className="table-zoom-readout">Table {tableZoom}% · Ctrl + scroll</span>
-          <button className="price-history-button" type="button" onClick={undoPriceChange} disabled={!priceUndoHistory.length}>
+          <span className="text-[#687d81] text-[13px]">{filtered.length} materials</span>
+          <span className="text-[#71898c] text-[10px] tabular-nums">Table {tableZoom}% · Ctrl + scroll</span>
+          <button
+            className="min-h-[30px] px-[9px] border border-[#a7cfca] rounded-[5px] bg-white text-[#1d6f69] text-[10px] font-extrabold hover:enabled:bg-[#e5f4f1] disabled:border-[#d7e2e1] disabled:bg-[#f4f7f7] disabled:text-[#a2b1b1] disabled:cursor-not-allowed cursor-pointer"
+            type="button"
+            onClick={undoPriceChange}
+            disabled={!priceUndoHistory.length}
+          >
             Undo
           </button>
-          <button className="price-history-button" type="button" onClick={redoPriceChange} disabled={!priceRedoHistory.length}>
+          <button
+            className="min-h-[30px] px-[9px] border border-[#a7cfca] rounded-[5px] bg-white text-[#1d6f69] text-[10px] font-extrabold hover:enabled:bg-[#e5f4f1] disabled:border-[#d7e2e1] disabled:bg-[#f4f7f7] disabled:text-[#a2b1b1] disabled:cursor-not-allowed cursor-pointer"
+            type="button"
+            onClick={redoPriceChange}
+            disabled={!priceRedoHistory.length}
+          >
             Redo
           </button>
           <button
-            className={`delete-selected-button ${priceDeleteMode ? "selection-active" : ""}`}
+            className={`flex items-center gap-[5px] min-h-[30px] ml-[5px] px-[9px] border rounded-[5px] text-[10px] font-extrabold cursor-pointer transition-colors ${
+              priceDeleteMode
+                ? "border-[#d99898] bg-[#fff1f1] text-[#a12e2e] hover:bg-[#fde2e2]"
+                : "border-[#a7cfca] bg-white text-[#1d6f69] hover:bg-[#e5f4f1]"
+            }`}
             type="button"
             onClick={() => {
               if (!priceDeleteMode) {
@@ -423,7 +440,7 @@ export function PriceBook({
                 })
               )}
             {!companyPriceTables.some((table) => table.companyDatabaseId === companyDatabase.id) && (
-              <p className="price-book-empty">
+              <p className="m-0 p-[18px] text-[#7b9194] text-[11px] text-center">
                 No tables yet. Use Add table to create the first {companyDatabase.name} material table.
               </p>
             )}
