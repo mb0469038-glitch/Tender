@@ -1,22 +1,39 @@
-# Tauri + React + Typescript
+# TenderStudio / Tender Helping System
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+Enterprise Estimation, Material Catalogs, 2D Canvas Takeoff, Assemblies, and Cutting Optimizer system for Atelier Moderne.
 
-## Recommended IDE Setup
+---
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
-# AMA
+## 🚀 Quick Start (Run Locally in 1 Step)
 
-## Estimation Service (Tender Helping System)
+Make sure **Docker Desktop** is open, then run:
 
-Local Tauri desktop app for tender estimating, material databases, assemblies, technical drawings, and project takeoff.
+```bash
+docker compose up -d --build
+```
 
-## Move to another PC
+Then open your browser at **[http://localhost](http://localhost)**.
 
-Clone this private repository, run `npm install`, then run `npm run tauri dev` after installing the Tauri/Rust requirements.
+* **Default Username:** `admin`
+* **Default Password:** `admin123`
 
-The current local workspace is included at `workspace-data/tender-studio.sqlite`. To restore it on Windows, close the app and copy it to:
+👉 **Full instructions & troubleshooting:** See [docs/RUNNING_LOCALLY.md](docs/RUNNING_LOCALLY.md).
 
-`%APPDATA%\\com.gravity.tenderhelpingsystem\\tender-studio.sqlite`
+---
 
-This file contains your saved materials, assemblies, projects, prices, and uploaded assembly reference images.
+## 🏗 Architecture & Documentation
+
+- **[Running Locally Guide](docs/RUNNING_LOCALLY.md)**: Easy, step-by-step guide for non-technical users and AI agents.
+- **[Architecture Overview](docs/architecture/OVERVIEW.md)**: Decomposed modular monolith structure, clean architecture layers, and Docker container breakdown.
+- **[Architectural Rules for AI Agents](AGENTS.md)**: Rules ensuring zero code density, strict separation of concerns, and anti-bloat ceilings.
+- **[RBAC & Permissions](docs/architecture/RBAC.md)**: Roles and permissions security model.
+
+---
+
+## 💻 Tech Stack
+
+- **Frontend:** React 19, TypeScript, Vite, Vanilla CSS.
+- **Backend Server:** Node.js (Express, TypeScript) with dual-mode support for Tauri IPC and HTTP REST.
+- **Database:** PostgreSQL 16 Alpine with automatic schema migrations & persistence.
+- **Reverse Proxy:** Nginx Alpine with SPA fallback routing.
+- **Desktop (Optional):** Tauri v2 (Rust).

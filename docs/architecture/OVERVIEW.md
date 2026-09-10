@@ -88,47 +88,47 @@ plumbing used by every module.
   (icons, buttons, etc.), the home for anything genuinely new modules should
   reuse instead of reinventing.
 
-## Where today's business logic stands
+## Current System Structure & Decomposed App.tsx
 
-`src/App.tsx` shrank from 4,528 lines to roughly 4,000 across several
-extraction phases, but it is still the home of **all screen rendering**
-(`PriceBook`, `Library`, `AssemblyLibrary`, `Projects`, `Canvas`) and the
-one-time hydration/migration effect. What *has* moved out, following the
-module layout above:
+`src/App.tsx` has been completely decomposed from an earlier ~4,500 line monolith down to a **lean ~196-line root orchestrator**. All screen rendering, modal dispatching, interaction handlers, and state management now live in dedicated clean-architecture layers:
 
-- **Pure logic** (Phase 2/6/9 pattern — explicit-parameter functions in
-  `domain/`, thin same-signature wrappers left in `App.tsx`): the window-join
-  engine (`modules/projects/domain/joinEngine.ts`), the formula/quantity
-  engine (`modules/costing/domain/quantityEngine.ts`), the material
-  addressing scheme (`modules/catalog/domain/materialReference.ts`), and
-  shipping/selling-price helpers (`modules/costing/domain/pricing.ts`).
-- **State ownership** (the `use<Module>State()` pattern below): markup/
-  manpower/shipping (`useCostingState`), the material sub-database
-  bookkeeping (`useMaterialDatabasesState`), `materials`/`assemblies`
-  (`useCatalogItemsState`), and `projects` plus its selection/undo state
-  (`useProjectsState`) — see "State-owning modules" below.
-- **Infrastructure/orchestration**: workspace persistence
-  (`modules/workspace/{infrastructure,application,domain}`).
-- **One screen component**: `CostingFinancials` moved to
-  `modules/costing/ui/CostingFinancials.tsx`, converted from a closure to an
-  explicit-props component — the pilot for screen relocation.
-
-**Screen relocation beyond `CostingFinancials` is intentionally paused.**
-Investigating `PriceBook` (and, by extension, the much larger `Canvas`, ~700
-lines) found it depends on 40+ App.tsx-local state variables *and* non-trivial
-handler functions (`movePriceMaterialToTable`, `recordPriceChange`,
-`setMaterialRateMethod`, `openCompanyTableMaterial`, several more) — an order
-of magnitude more entangled than `CostingFinancials`'s ~15 dependencies.
-Moving these safely means either prop-drilling 40+ values per component (real
-risk of a silent wiring mistake) or first extracting those handler functions
-into the relevant module's `application/` layer — itself a non-trivial,
-per-screen effort. This is real, scoped future work, not a "coming next"
-item — see `src/modules/workspace-legacy/README.md` for the up-to-date
-per-module status.
-
-See `src/modules/workspace-legacy/README.md` for the full target-seam
-breakdown and per-item status (what's extracted, what's deliberately left in
-`App.tsx` and why).
+```
+src/
+  ├── App.tsx                      # Lean orchestrator (<200 lines), screen routing & shell mount
+  ├── application/
+  │   └── useAppState.ts           # Master composite hook aggregating module sub-states
+  ├── ui/                          # Global shell presentation
+  │   ├── AppSidebar.tsx           # Navigation sidebar (collapsible, project years, databases)
+  │   ├── AppTopbar.tsx            # Top header bar, breadcrumbs, action buttons
+  │   └── AppScreens.tsx           # Screen routing dispatcher (Catalog, Projects, Stock, etc.)
+  ├── modules/
+  │   ├── catalog/                 # Catalog, Materials, Assemblies, and Price Books
+  │   │   ├── domain/              # Entities, seeds, material references
+  │   │   ├── application/         # usePriceBookState, useModalManager, useCatalogItemsState
+  │   │   └── ui/modals/           # AppModals, MaterialModal, AssemblyModal, CompanyDatabaseModals
+  │   ├── projects/                # Projects & 2D Canvas Takeoff
+  │   │   ├── domain/              # joinEngine, projectDefaults
+  │   │   ├── application/         # useCanvasInteraction, useCanvasTakeoff, useProjectsState
+  │   │   └── ui/                  # CanvasScreen, Project Modals
+  │   ├── execution/               # Execution & Cutting Optimizer
+  │   │   ├── domain/              # cuttingOptimizer
+  │   │   ├── application/         # useExecutionState
+  │   │   └── ui/                  # ExecutionProjectsScreen, ExecutionWorkspaceScreen, CuttingList
+  │   ├── costing/                 # Quantity Calculations & Financial Estimation
+  │   │   ├── domain/              # quantityEngine, pricing, defaults
+  │   │   ├── application/         # useCostingState
+  │   │   └── ui/                  # CostingFinancials
+  │   ├── auth/                    # RBAC, Authentication & Session Management
+  │   │   ├── domain/              # permissions, user/role entities
+  │   │   ├── application/         # authService, adminService
+  │   │   ├── infrastructure/      # tauriAuthGateway
+  │   │   └── ui/                  # LoginScreen, AdminBackofficeLayout, PermissionGate
+  │   └── workspace/               # App Lifecycle & Home
+  │       ├── application/         # useWorkspacePersistence
+  │       └── ui/                  # AmaHome (Landing Splash Screen)
+  ├── design-system/               # Reusable UI primitives (Icon, Sketch, Buttons)
+  └── shared/                      # Kernel helpers, permission gates, navigation mappings
+```
 
 ## Persistence
 

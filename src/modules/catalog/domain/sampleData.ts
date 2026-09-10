@@ -1,0 +1,88 @@
+import type { Assembly, Material } from "../../../domain/types";
+
+export const materialData: Material[] = [
+  {
+    id: "glass",
+    name: "Clear tempered glass",
+    code: "GL-001",
+    supplierCode: "GL-CT-6",
+    category: "Glass",
+    unit: "m²",
+    weight: 15,
+    priceMethod: "Per m²",
+    cost: 18.5,
+    options: ["Thickness", "Tint"],
+    properties: ["Width", "Height", "Thickness"],
+    sketch: "M18 15H82V85H18Z",
+  },
+  {
+    id: "profile",
+    name: "Aluminium frame profile",
+    code: "AL-104",
+    supplierCode: "AL-440",
+    category: "Aluminium",
+    unit: "m",
+    weight: 1.25,
+    priceMethod: "Per meter",
+    cost: 7.8,
+    options: ["Finish"],
+    properties: ["Length", "Finish"],
+    sketch: "M24 16H43V84H24ZM57 16H76V84H57Z",
+  },
+  {
+    id: "bracket",
+    name: "Corner bracket",
+    code: "HD-018",
+    supplierCode: "HD-018",
+    category: "Hardware",
+    unit: "piece",
+    weight: 0.08,
+    priceMethod: "Per piece",
+    cost: 0.65,
+    options: ["Finish"],
+    properties: ["Size", "Finish"],
+    sketch: "M21 24H79V42H40V78H21Z",
+  },
+];
+
+export const assemblyData: Assembly[] = [
+  {
+    id: "window",
+    name: "Sliding window type 1",
+    code: "WN-001",
+    category: "Window",
+    properties: ["Width", "Height", "Glass type"],
+    parts: [
+      { materialId: "glass", quantity: 2 },
+      { materialId: "profile", quantity: 4 },
+      { materialId: "bracket", quantity: 4 },
+    ],
+    rules: [
+      {
+        id: "r1",
+        materialId: "profile",
+        property: "Width",
+        operator: ">",
+        value: "1500",
+        quantityWhenTrue: "4",
+        quantityOtherwise: "2",
+        measureFormula: "Height",
+      },
+    ],
+    sketch: "M15 13H85V87H15ZM50 13V87",
+  },
+  {
+    id: "door",
+    name: "Aluminium swing door",
+    code: "DR-001",
+    category: "Door",
+    properties: ["Width", "Height", "Finish"],
+    parts: [
+      { materialId: "glass", quantity: 1 },
+      { materialId: "profile", quantity: 4 },
+      { materialId: "bracket", quantity: 4 },
+    ],
+    rules: [],
+    sketch: "M24 10H76V90H24ZM61 50h2",
+  },
+];
