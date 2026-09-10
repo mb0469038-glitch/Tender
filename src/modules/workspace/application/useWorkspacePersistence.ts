@@ -520,6 +520,10 @@ export function useWorkspacePersistence({
   // Auto-save effect
   useEffect(() => {
     if (!hydrated) return;
+    if (materials.length < 50) {
+      console.warn("[WorkspacePersistence] Auto-save skipped: state has < 50 materials (preventing accidental mock overwrite).");
+      return;
+    }
     const version = ++workspaceSaveVersion.current;
     const snapshot = serializeWorkspaceSnapshot(currentWorkspaceSnapshot());
     setWorkspaceSaveStatus("saving");
@@ -541,47 +545,6 @@ export function useWorkspacePersistence({
         });
     }, 600);
     return () => window.clearTimeout(saveTimer);
-  }, [
-    materials,
-    assemblies,
-    projects,
-    executionProjects,
-    componentDatabases,
-    weightRates,
-    markupRates,
-    manpowerCurrency,
-    manpowerCosts,
-    shippingTypes,
-    shippingCosts,
-    fynAssemblyMaterialTemplateVersion,
-    companyDatabases,
-    companyPriceTables,
-    movedOriginalPriceTableIds,
-    hydrated,
-  ]);
-
-  // Ctrl+R save-before-refresh shortcut
-  useEffect(() => {
-    const refreshWithKeyboard = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "r") return;
-      event.preventDefault();
-      if (workspaceRefreshInProgress.current) return;
-      workspaceRefreshInProgress.current = true;
-      if (!hydrated) {
-        window.location.reload();
-        return;
-      }
-      const snapshot = serializeWorkspaceSnapshot(currentWorkspaceSnapshot());
-      workspaceSaveVersion.current += 1;
-      setWorkspaceSaveStatus("saving");
-      workspaceSaveQueue.current = workspaceSaveQueue.current
-        .catch(() => undefined)
-        .then(() => persistWorkspaceSnapshot(snapshot, { refreshRecentSaves: false }).then(() => undefined))
-        .catch((error) => console.error("Could not save the workspace before refreshing.", error))
-        .finally(() => window.location.reload());
-    };
-    window.addEventListener("keydown", refreshWithKeyboard);
-    return () => window.removeEventListener("keydown", refreshWithKeyboard);
   }, [
     materials,
     assemblies,

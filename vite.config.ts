@@ -44,13 +44,13 @@ export default defineConfig(async () => ({
       : undefined,
     proxy: {
       "/api": {
-        target: process.env.VITE_API_TARGET || "http://213.199.37.145",
+        target: process.env.VITE_API_TARGET || "http://localhost:4000",
         changeOrigin: true,
       },
     },
     watch: {
-      // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      // tell Vite to ignore watching src-tauri, workspace-data, and sqlite files
+      ignored: ["**/src-tauri/**", "**/workspace-data/**", "**/*.sqlite*", "**/*.json.gz"],
     },
   },
 }));
