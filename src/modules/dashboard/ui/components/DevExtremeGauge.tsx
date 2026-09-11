@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import type { CuttingOptimizationYield } from "../../domain/dashboardTypes";
+import type { RealCatalogCategory } from "../../domain/dashboardTypes";
 
 interface DevExtremeGaugeProps {
-  data: CuttingOptimizationYield;
+  totalMaterials: number;
+  catalogCategories: RealCatalogCategory[];
+  totalAssemblies: number;
   height?: number;
 }
 
-export function DevExtremeGauge({ data, height = 240 }: DevExtremeGaugeProps) {
+export function DevExtremeGauge({
+  totalMaterials,
+  catalogCategories,
+  totalAssemblies,
+  height = 230,
+}: DevExtremeGaugeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isRendered, setIsRendered] = useState(false);
 
@@ -21,24 +28,24 @@ export function DevExtremeGauge({ data, height = 240 }: DevExtremeGaugeProps) {
 
     const gaugeInstance = new devExpress.viz.dxCircularGauge(el, {
       scale: {
-        startValue: 75,
-        endValue: 100,
-        tickInterval: 5,
+        startValue: 0,
+        endValue: 120,
+        tickInterval: 20,
         label: {
-          customizeText: (arg: any) => `${arg.valueText}%`,
+          customizeText: (arg: any) => `${arg.valueText}`,
           font: { size: 10, weight: 600, color: "#64748B" },
         },
       },
       rangeContainer: {
         width: 10,
         ranges: [
-          { startValue: 75, endValue: 88, color: "#FCA5A5" }, // Critical / Low Yield
-          { startValue: 88, endValue: 93, color: "#FCD34D" }, // Acceptable
-          { startValue: 93, endValue: 100, color: "#86EFAC" }, // High Yield Optimal
+          { startValue: 0, endValue: 40, color: "#93C5FD" },   // Base items
+          { startValue: 40, endValue: 80, color: "#60A5FA" },  // Profiles & Hardware
+          { startValue: 80, endValue: 120, color: "#165BAA" }, // Full Catalog
         ],
       },
-      value: data.overallYieldPercent,
-      subvalues: [data.targetBenchmarkPercent],
+      value: totalMaterials,
+      subvalues: [100],
       valueIndicator: {
         type: "triangleNeedle",
         color: "#0B1F4D",
@@ -51,9 +58,9 @@ export function DevExtremeGauge({ data, height = 240 }: DevExtremeGaugeProps) {
         width: 10,
       },
       title: {
-        text: `${data.overallYieldPercent}% Linear Yield`,
+        text: `${totalMaterials} Catalog Items`,
         subtitle: {
-          text: `Target Benchmark: ${data.targetBenchmarkPercent}%`,
+          text: `${totalAssemblies} Standard System Assemblies`,
           font: { size: 11, weight: 600, color: "#165BAA" },
         },
         font: { size: 18, weight: 800, color: "#0B1F4D" },
@@ -81,7 +88,9 @@ export function DevExtremeGauge({ data, height = 240 }: DevExtremeGaugeProps) {
         // ignore
       }
     };
-  }, [data]);
+  }, [totalMaterials, totalAssemblies]);
+
+  const topCats = catalogCategories.slice(0, 3);
 
   return (
     <div className="w-full flex flex-col items-center">
@@ -94,25 +103,21 @@ export function DevExtremeGauge({ data, height = 240 }: DevExtremeGaugeProps) {
             style={{ height: `${height}px` }}
           >
             <div className="w-6 h-6 border-2 border-[#CBD5E1] border-t-[#165BAA] rounded-full animate-spin mb-2" />
-            <span>Rendering Optimization Gauge…</span>
+            <span>Rendering Real Catalog Gauge…</span>
           </div>
         )}
       </div>
 
-      {/* Shop floor metrics breakdown */}
+      {/* Real Category Breakdown */}
       <div className="grid grid-cols-3 gap-2 w-full mt-3 pt-3 border-t border-[#E2E8F0] text-center">
-        <div className="bg-[#F8FAFC] rounded-lg p-2 border border-[#E2E8F0]">
-          <div className="text-[10.5px] font-bold text-[#64748B] uppercase">Kerf Saw Loss</div>
-          <div className="text-sm font-extrabold text-[#0B1F4D] mt-0.5">{data.kerfWastagePercent}%</div>
-        </div>
-        <div className="bg-[#F8FAFC] rounded-lg p-2 border border-[#E2E8F0]">
-          <div className="text-[10.5px] font-bold text-[#64748B] uppercase">End Trim Loss</div>
-          <div className="text-sm font-extrabold text-[#0B1F4D] mt-0.5">{data.trimWastagePercent}%</div>
-        </div>
-        <div className="bg-[#EFF6FF] rounded-lg p-2 border border-[#BFDBFE]">
-          <div className="text-[10.5px] font-bold text-[#165BAA] uppercase">Reclaimed Offcuts</div>
-          <div className="text-sm font-extrabold text-[#165BAA] mt-0.5">{(data.reclaimedOffcutsKg / 1000).toFixed(1)}t</div>
-        </div>
+        {topCats.map((cat, idx) => (
+          <div key={idx} className="bg-[#F8FAFC] rounded-lg p-2 border border-[#E2E8F0]">
+            <div className="text-[10.5px] font-bold text-[#64748B] uppercase line-clamp-1" title={cat.category}>
+              {cat.category}
+            </div>
+            <div className="text-sm font-extrabold text-[#0B1F4D] mt-0.5">{cat.count} items</div>
+          </div>
+        ))}
       </div>
     </div>
   );

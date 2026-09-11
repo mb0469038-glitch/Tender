@@ -1,59 +1,57 @@
-export type TrendDirection = "up" | "down" | "neutral";
-
-export type KpiMetric = {
+export type RealOpeningItem = {
   id: string;
-  title: string;
-  value: string;
-  change: string;
-  trend: TrendDirection;
-  period: string;
-  subtext: string;
-};
-
-export type MonthlyTenderDemand = {
-  month: string;
-  extrusionTons: number;
-  glazingAreaM2: number;
-  pipelineValueUsd: number;
-};
-
-export type FacadeSystemShare = {
-  system: string;
+  name: string;
+  projectName: string;
+  widthMm: number;
+  heightMm: number;
+  quantity: number;
   areaM2: number;
-  percentage: number;
-  extrusionTons: number;
-  color: string;
+  perimeterM: number;
+  systemName: string;
+  glassLabel?: string;
+  color?: string;
+  leaves?: number;
 };
 
-export type CuttingOptimizationYield = {
-  overallYieldPercent: number;
-  kerfWastagePercent: number;
-  trimWastagePercent: number;
-  reclaimedOffcutsKg: number;
-  targetBenchmarkPercent: number;
-  standardBarLengthM: number;
-};
-
-export type AlloyInventory = {
-  alloy: string;
-  description: string;
-  onHandTons: number;
-  allocatedTons: number;
-  availableTons: number;
-  minSafetyTons: number;
-};
-
-export type FacadeTenderProject = {
+export type RealProjectSummary = {
   id: string;
-  code: string;
   name: string;
   client: string;
   location: string;
-  envelopeType: string;
-  glazingM2: number;
-  extrusionTons: number;
-  packageValueUsd: number;
-  status: "Tender In Review" | "Takeoff in Progress" | "Fabrication" | "Submitted" | "Awarded";
-  winProbability: number;
   year: string;
+  itemsCount: number;
+  totalGlazingM2: number;
+  totalPerimeterM: number;
+  primarySystem: string;
+};
+
+export type RealSystemShare = {
+  system: string;
+  areaM2: number;
+  percentage: number;
+  openingsCount: number;
+  color: string;
+};
+
+export type RealCatalogCategory = {
+  category: string;
+  count: number;
+  percentage: number;
+  color: string;
+};
+
+export type RealDashboardSummary = {
+  totalProjects: number;
+  totalOpenings: number;
+  totalGlazingM2: number;
+  totalPerimeterM: number;
+  totalMaterials: number;
+  totalAssemblies: number;
+  totalExecutionProjects: number;
+  totalMarkupRules: number;
+  projects: RealProjectSummary[];
+  openings: RealOpeningItem[];
+  systemsShare: RealSystemShare[];
+  catalogCategories: RealCatalogCategory[];
+  manpowerHourlyRates: { name: string; rate: number }[];
 };
