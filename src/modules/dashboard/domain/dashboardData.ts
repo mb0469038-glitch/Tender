@@ -1,0 +1,211 @@
+import type {
+  KpiMetric,
+  MonthlyTenderDemand,
+  FacadeSystemShare,
+  CuttingOptimizationYield,
+  AlloyInventory,
+  FacadeTenderProject,
+} from "./dashboardTypes";
+
+export const executiveKpiMetrics: KpiMetric[] = [
+  {
+    id: "pipeline-value",
+    title: "Tender Pipeline Value",
+    value: "$18.45M",
+    change: "+14.8%",
+    trend: "up",
+    period: "vs previous quarter",
+    subtext: "16 Active Façade Bids",
+  },
+  {
+    id: "extrusion-tonnage",
+    title: "Aluminum Extrusion Demand",
+    value: "186.5 Tons",
+    change: "+22.4%",
+    trend: "up",
+    period: "across 2026/2027 packages",
+    subtext: "Alloys 6063-T6, 6060 & 6082",
+  },
+  {
+    id: "glazing-surface",
+    title: "Glazing Surface Area",
+    value: "42,850 m²",
+    change: "+9.2%",
+    trend: "up",
+    period: "double glazed & curtain wall",
+    subtext: "Low-E, Thermal Break & Acoustic",
+  },
+  {
+    id: "cutting-yield",
+    title: "Shop Floor Cutting Yield",
+    value: "94.8%",
+    change: "+2.4%",
+    trend: "up",
+    period: "linear stock optimization",
+    subtext: "Off-cut recovery: 4,250 kg",
+  },
+  {
+    id: "win-rate",
+    title: "Tender Win Rate",
+    value: "38.2%",
+    change: "+3.5%",
+    trend: "up",
+    period: "commercial & residential",
+    subtext: "Benchmark: 32.0%",
+  },
+];
+
+export const monthlyTenderDemands: MonthlyTenderDemand[] = [
+  { month: "Jan", extrusionTons: 12.4, glazingAreaM2: 2850, pipelineValueUsd: 1.15 },
+  { month: "Feb", extrusionTons: 14.8, glazingAreaM2: 3400, pipelineValueUsd: 1.42 },
+  { month: "Mar", extrusionTons: 18.2, glazingAreaM2: 4150, pipelineValueUsd: 1.78 },
+  { month: "Apr", extrusionTons: 16.5, glazingAreaM2: 3800, pipelineValueUsd: 1.62 },
+  { month: "May", extrusionTons: 21.0, glazingAreaM2: 4900, pipelineValueUsd: 2.05 },
+  { month: "Jun", extrusionTons: 19.4, glazingAreaM2: 4400, pipelineValueUsd: 1.88 },
+  { month: "Jul", extrusionTons: 15.2, glazingAreaM2: 3500, pipelineValueUsd: 1.50 },
+  { month: "Aug", extrusionTons: 13.8, glazingAreaM2: 3150, pipelineValueUsd: 1.35 },
+  { month: "Sep", extrusionTons: 22.6, glazingAreaM2: 5200, pipelineValueUsd: 2.24 },
+  { month: "Oct", extrusionTons: 20.1, glazingAreaM2: 4650, pipelineValueUsd: 1.95 },
+  { month: "Nov", extrusionTons: 17.5, glazingAreaM2: 4050, pipelineValueUsd: 1.72 },
+  { month: "Dec", extrusionTons: 15.0, glazingAreaM2: 3400, pipelineValueUsd: 1.48 },
+];
+
+export const facadeSystemShares: FacadeSystemShare[] = [
+  {
+    system: "Curtain Wall Stick (Soleal FY)",
+    areaM2: 17560,
+    percentage: 41,
+    extrusionTons: 82.4,
+    color: "#0B1F4D", // Primary AMA Navy
+  },
+  {
+    system: "Thermal Break Sliders (Soleal GY)",
+    areaM2: 12000,
+    percentage: 28,
+    extrusionTons: 51.8,
+    color: "#165BAA", // AMA Brand Blue
+  },
+  {
+    system: "Hinged & Tilt-Turn (Soleal FYN)",
+    areaM2: 7720,
+    percentage: 18,
+    extrusionTons: 32.6,
+    color: "#2D8ACD", // Accent Blue
+  },
+  {
+    system: "Structural Glazing & Skylights",
+    areaM2: 5570,
+    percentage: 13,
+    extrusionTons: 19.7,
+    color: "#0F766E", // Teal
+  },
+];
+
+export const cuttingYieldData: CuttingOptimizationYield = {
+  overallYieldPercent: 94.8,
+  kerfWastagePercent: 2.1,
+  trimWastagePercent: 3.1,
+  reclaimedOffcutsKg: 4250,
+  targetBenchmarkPercent: 96.0,
+  standardBarLengthM: 6.5,
+};
+
+export const alloyInventories: AlloyInventory[] = [
+  {
+    alloy: "6063-T6",
+    description: "Architectural Extrusion (Mullions/Transoms)",
+    onHandTons: 74.2,
+    allocatedTons: 52.8,
+    availableTons: 21.4,
+    minSafetyTons: 15.0,
+  },
+  {
+    alloy: "6060-T5",
+    description: "Anodizing & Powder Coating Quality Profiles",
+    onHandTons: 48.6,
+    allocatedTons: 36.1,
+    availableTons: 12.5,
+    minSafetyTons: 10.0,
+  },
+  {
+    alloy: "6082-T6",
+    description: "High-Strength Structural Brackets & Anchors",
+    onHandTons: 28.4,
+    allocatedTons: 19.5,
+    availableTons: 8.9,
+    minSafetyTons: 6.0,
+  },
+];
+
+export const topFacadeProjects: FacadeTenderProject[] = [
+  {
+    id: "proj-lusail",
+    code: "AMA-TND-2601",
+    name: "Lusail Marina Commercial Tower",
+    client: "Qatari Diar / CCC JV",
+    location: "Lusail, Qatar",
+    envelopeType: "Curtain Wall SG-52 & Louvers",
+    glazingM2: 12800,
+    extrusionTons: 56.4,
+    packageValueUsd: 5850000,
+    status: "Tender In Review",
+    winProbability: 75,
+    year: "2026",
+  },
+  {
+    id: "proj-nakheel",
+    code: "AMA-TND-2604",
+    name: "Al-Nakheel Financial District B4",
+    client: "Nakheel Properties",
+    location: "Riyadh, KSA",
+    envelopeType: "Unitized Façade & Soleal FY",
+    glazingM2: 9400,
+    extrusionTons: 41.2,
+    packageValueUsd: 4220000,
+    status: "Takeoff in Progress",
+    winProbability: 80,
+    year: "2026",
+  },
+  {
+    id: "proj-redsea",
+    code: "AMA-TND-2608",
+    name: "Red Sea Ultra-Luxury Island Villas",
+    client: "Red Sea Global (RSG)",
+    location: "Red Sea Coast, KSA",
+    envelopeType: "Thermal Sliders & Glass Balustrades",
+    glazingM2: 6200,
+    extrusionTons: 27.5,
+    packageValueUsd: 3150000,
+    status: "Awarded",
+    winProbability: 100,
+    year: "2026",
+  },
+  {
+    id: "proj-diplomatic",
+    code: "AMA-TND-2702",
+    name: "Diplomatic Quarter Cultural Pavilion",
+    client: "Royal Commission for Riyadh City",
+    location: "Riyadh, KSA",
+    envelopeType: "Double Skin Façade & Sunshades",
+    glazingM2: 7600,
+    extrusionTons: 33.8,
+    packageValueUsd: 3680000,
+    status: "Submitted",
+    winProbability: 60,
+    year: "2027",
+  },
+  {
+    id: "proj-riviera",
+    code: "AMA-TND-2611",
+    name: "Riviera Seafront Residences",
+    client: "Riviera Development Group",
+    location: "Beirut, Lebanon",
+    envelopeType: "Soleal GY 2-Rail Sliders & Hinged",
+    glazingM2: 4850,
+    extrusionTons: 21.0,
+    packageValueUsd: 1550000,
+    status: "Fabrication",
+    winProbability: 100,
+    year: "2026",
+  },
+];

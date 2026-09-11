@@ -1,5 +1,6 @@
+import { useLocation } from "react-router-dom";
 import type { ComponentDatabase, ExecutionProject, Screen } from "../domain/types";
-import { ChevronLeft, ChevronRight, FolderKanban, Layers3, Warehouse } from "lucide-react";
+import { ChevronLeft, ChevronRight, FolderKanban, Layers3, Warehouse, LayoutDashboard } from "lucide-react";
 import { useSidebarResize } from "./sidebar/useSidebarResize";
 import { SidebarWorkspaceStatus } from "./sidebar/SidebarWorkspaceStatus";
 import { SidebarNavGroups } from "./sidebar/SidebarNavGroups";
@@ -7,8 +8,8 @@ import { SidebarNavGroups } from "./sidebar/SidebarNavGroups";
 export type AppSidebarProps = {
   sidebarCollapsed: boolean;
   setSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
-  screen: Screen;
-  setScreen: (screen: Screen) => void;
+  screen?: Screen;
+  setScreen?: (screen: Screen) => void;
   projectsOpen: boolean;
   setProjectsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   projectYears: readonly string[];
@@ -33,8 +34,9 @@ export type AppSidebarProps = {
 };
 
 export function AppSidebar(props: AppSidebarProps) {
-  const { sidebarCollapsed, setSidebarCollapsed, screen } = props;
+  const { sidebarCollapsed, setSidebarCollapsed } = props;
   const { width, isDragging, startResizing, resetWidth } = useSidebarResize(sidebarCollapsed);
+  const location = useLocation();
 
   const topNavBtnClass = (isActive: boolean) =>
     `group flex items-center gap-3 w-full border-0 rounded-[8px] text-left text-[15px] font-bold cursor-pointer transition-all duration-150 ${
@@ -52,11 +54,9 @@ export function AppSidebar(props: AppSidebarProps) {
         : "bg-transparent text-[#475467] hover:bg-[#EDF2F7] hover:text-[#0B1F4D]"
     }`;
 
-  const isExecution =
-    screen === "execution-projects" ||
-    screen === "execution-project-detail" ||
-    screen === "execution-workspace";
-  const isStock = screen === "stock";
+  const isExecution = location.pathname.startsWith("/execution");
+  const isStock = location.pathname.startsWith("/stock");
+  const isDashboard = location.pathname === "/dashboard" || location.pathname === "/";
   const isEstimation = !isExecution && !isStock;
 
   return (
@@ -88,6 +88,8 @@ export function AppSidebar(props: AppSidebarProps) {
               <FolderKanban size={18} strokeWidth={2} />
             ) : isStock ? (
               <Warehouse size={18} strokeWidth={2} />
+            ) : isDashboard ? (
+              <LayoutDashboard size={18} strokeWidth={2} />
             ) : (
               <Layers3 size={18} strokeWidth={2} />
             )}
@@ -95,10 +97,10 @@ export function AppSidebar(props: AppSidebarProps) {
           {!sidebarCollapsed && (
             <div className="min-w-0">
               <div className="text-[15px] font-black tracking-tight text-[#0B1F4D] leading-none">
-                {isExecution ? "Execution" : isStock ? "Stock" : "Estimation"}
+                {isExecution ? "Execution" : isStock ? "Stock" : isDashboard ? "Dashboard" : "Estimation"}
               </div>
               <div className="text-[11.5px] font-semibold text-[#165BAA] leading-none mt-1 truncate">
-                Workspace Drawer
+                {isDashboard ? "Executive Portal" : "Workspace Drawer"}
               </div>
             </div>
           )}

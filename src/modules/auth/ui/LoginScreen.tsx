@@ -1,10 +1,12 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSession } from "./SessionContext";
 import "./auth.css";
 
 export function LoginScreen() {
   const { login } = useSession();
+  const navigate = useNavigate();
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("admin123");
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +19,11 @@ export function LoginScreen() {
     setIsSubmitting(true);
     const result = await login(username.trim(), password);
     setIsSubmitting(false);
-    if (!result.ok) setError(result.error);
+    if (!result.ok) {
+      setError(result.error);
+    } else {
+      navigate("/dashboard", { replace: true });
+    }
   };
 
   return (

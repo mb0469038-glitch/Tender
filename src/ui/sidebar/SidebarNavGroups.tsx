@@ -1,3 +1,4 @@
+import { useLocation, useNavigate } from "react-router-dom";
 import type { ComponentDatabase, ExecutionProject, Screen } from "../../domain/types";
 import { PermissionGate } from "../../shared/permissions/PermissionGate";
 import { WORKSPACE_PERMISSIONS } from "../../modules/workspace-legacy/domain/permissions";
@@ -21,8 +22,8 @@ import {
 
 export type SidebarNavGroupsProps = {
   sidebarCollapsed: boolean;
-  screen: Screen;
-  setScreen: (screen: Screen) => void;
+  screen?: Screen;
+  setScreen?: (screen: Screen) => void;
   projectsOpen: boolean;
   setProjectsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   projectYears: readonly string[];
@@ -47,9 +48,9 @@ export type SidebarNavGroupsProps = {
 };
 
 const DATABASE_NAV_ITEMS = [
-  { id: "prices", label: "Material database" },
-  { id: "glass", label: "Glass price" },
-  { id: "costing-financials", label: "Costing & Financials" },
+  { id: "prices", path: "/database/soleal", label: "Material database" },
+  { id: "glass", path: "/database/glass", label: "Glass price" },
+  { id: "costing-financials", path: "/database/costing", label: "Costing & Financials" },
 ] as const;
 
 const TECHNAL_NAV_ITEMS = [
@@ -62,8 +63,6 @@ const TECHNAL_NAV_ITEMS = [
 
 export function SidebarNavGroups({
   sidebarCollapsed,
-  screen,
-  setScreen,
   projectsOpen,
   setProjectsOpen,
   projectYears,
@@ -81,19 +80,26 @@ export function SidebarNavGroups({
   openNewDatabase,
   topNavBtnClass,
   subNavBtnClass,
-  executionProjects,
-  selectedExecutionProjectId,
-  openExecutionProject,
   setExecutionFolderId,
 }: SidebarNavGroupsProps) {
-  if (screen === "stock") {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const isStock = location.pathname.startsWith("/stock");
+  const isExecution = location.pathname.startsWith("/execution");
+  const isProjects = location.pathname === "/home" || location.pathname.startsWith("/canvas");
+  const isDatabase = location.pathname.startsWith("/database");
+  const isAssemblies = location.pathname.startsWith("/assemblies");
+  const isExcel = location.pathname.startsWith("/excel");
+
+  if (isStock) {
     return (
       <nav className="grid gap-1.5 overflow-y-auto pr-0.5" aria-label="Stock navigation">
         <button
           className={topNavBtnClass(true)}
           onClick={() => {
             setActiveDatabaseId("prices");
-            setScreen("stock");
+            navigate("/stock");
           }}
         >
           <Warehouse size={19} strokeWidth={1.8} className="shrink-0" />
@@ -103,11 +109,7 @@ export function SidebarNavGroups({
     );
   }
 
-  if (
-    screen === "execution-projects" ||
-    screen === "execution-project-detail" ||
-    screen === "execution-workspace"
-  ) {
+  if (isExecution) {
     return (
       <nav className="grid gap-1.5 overflow-y-auto pr-0.5" aria-label="Execution navigation">
         <PermissionGate permission={WORKSPACE_PERMISSIONS.VIEW_EXECUTION_PROJECTS}>
@@ -115,53 +117,25 @@ export function SidebarNavGroups({
             className={topNavBtnClass(true)}
             onClick={() => {
               setExecutionFolderId?.(null);
-              setScreen("execution-projects");
+              navigate("/execution");
             }}
           >
             <FolderKanban size={19} strokeWidth={1.8} className="shrink-0" />
             {!sidebarCollapsed && <span>Projects Under Execution</span>}
           </button>
-          {!sidebarCollapsed && (
-            <div className="grid gap-1 my-1 ml-4 pl-3 border-l-2 border-[#E3E8EF]">
-              <button
-                className={subNavBtnClass(screen === "execution-projects")}
-                onClick={() => {
-                  setExecutionFolderId?.(null);
-                  setScreen("execution-projects");
-                }}
-              >
-                <span>All Projects</span>
-              </button>
-              {executionProjects &&
-                executionProjects.map((proj) => (
-                  <button
-                    key={proj.id}
-                    className={subNavBtnClass(
-                      screen === "execution-project-detail" && selectedExecutionProjectId === proj.id
-                    )}
-                    onClick={() => {
-                      openExecutionProject?.(proj.id);
-                    }}
-                    title={proj.name}
-                  >
-                    <span className="truncate">{proj.name}</span>
-                  </button>
-                ))}
-            </div>
-          )}
         </PermissionGate>
       </nav>
     );
   }
 
   return (
-    <nav className="grid gap-1.5 overflow-y-auto pr-0.5">
-      {/* Projects */}
+    <nav className="grid gap-1.5 overflow-y-auto pr-0.5" aria-label="Estimation navigation">
+      {/* 1. Projects (Estimation Home) */}
       <PermissionGate permission={WORKSPACE_PERMISSIONS.VIEW_PROJECTS}>
         <button
-          className={topNavBtnClass(screen === "projects" || screen === "canvas")}
+          className={topNavBtnClass(isProjects)}
           onClick={() => {
-            setScreen("projects");
+            navigate("/home");
             setProjectsOpen((open) => !open);
           }}
           aria-expanded={projectsOpen}
@@ -183,12 +157,10 @@ export function SidebarNavGroups({
             {projectYears.map((year) => (
               <button
                 key={year}
-                className={subNavBtnClass(
-                  (screen === "projects" || screen === "canvas") && activeProjectYear === year
-                )}
+                className={subNavBtnClass(isProjects && activeProjectYear === year)}
                 onClick={() => {
                   setActiveProjectYear(year);
-                  setScreen("projects");
+                  navigate("/home");
                 }}
               >
                 <span>{year}</span>
@@ -198,12 +170,12 @@ export function SidebarNavGroups({
         )}
       </PermissionGate>
 
-      {/* Database */}
+      {/* 2. Database */}
       <PermissionGate permission={WORKSPACE_PERMISSIONS.VIEW_DATABASE}>
         <button
-          className={topNavBtnClass(screen === "database")}
+          className={topNavBtnClass(isDatabase)}
           onClick={() => {
-            setScreen("database");
+            navigate("/database/soleal");
             setDatabaseOpen((open) => !open);
           }}
           aria-expanded={databaseOpen}
@@ -225,10 +197,10 @@ export function SidebarNavGroups({
             {DATABASE_NAV_ITEMS.map((item) => (
               <button
                 key={item.id}
-                className={subNavBtnClass(screen === "database" && activeDatabaseId === item.id)}
+                className={subNavBtnClass(location.pathname === item.path)}
                 onClick={() => {
                   setActiveDatabaseId(item.id);
-                  setScreen("database");
+                  navigate(item.path);
                 }}
               >
                 <span className="truncate">{item.label}</span>
@@ -238,12 +210,12 @@ export function SidebarNavGroups({
         )}
       </PermissionGate>
 
-      {/* Assemblies */}
+      {/* 3. Assemblies */}
       <PermissionGate permission={WORKSPACE_PERMISSIONS.VIEW_ASSEMBLIES}>
         <button
-          className={topNavBtnClass(screen === "assemblies")}
+          className={topNavBtnClass(isAssemblies)}
           onClick={() => {
-            setScreen("assemblies");
+            navigate("/assemblies");
             setAssembliesOpen((open) => !open);
           }}
           aria-expanded={assembliesOpen}
@@ -266,12 +238,12 @@ export function SidebarNavGroups({
               <button
                 key={item.id}
                 className={subNavBtnClass(
-                  screen === "assemblies" && activeDatabaseId === item.id
+                  isAssemblies && activeDatabaseId === item.id
                 )}
                 onClick={() => {
                   setActiveAssemblySystem("technal");
                   setActiveDatabaseId(item.id);
-                  setScreen("assemblies");
+                  navigate("/assemblies");
                 }}
               >
                 <span className="truncate">{item.label}</span>
@@ -281,12 +253,12 @@ export function SidebarNavGroups({
             <div className="flex items-center gap-1 mt-1">
               <button
                 className={`${subNavBtnClass(
-                  screen === "assemblies" && activeAssemblySystem === "sidem"
+                  isAssemblies && activeAssemblySystem === "sidem"
                 )} flex-1`}
                 onClick={() => {
                   setActiveAssemblySystem("sidem");
                   setActiveDatabaseId("sidem");
-                  setScreen("assemblies");
+                  navigate("/assemblies");
                 }}
               >
                 <span>Sidem</span>
@@ -309,14 +281,14 @@ export function SidebarNavGroups({
                     <button
                       key={database.id}
                       className={subNavBtnClass(
-                        screen === "assemblies" &&
+                        isAssemblies &&
                           activeAssemblySystem === "sidem" &&
                           activeDatabaseId === database.id
                       )}
                       onClick={() => {
                         setActiveAssemblySystem("sidem");
                         setActiveDatabaseId(database.id);
-                        setScreen("assemblies");
+                        navigate("/assemblies");
                       }}
                     >
                       <span className="truncate">{database.name}</span>
@@ -328,11 +300,11 @@ export function SidebarNavGroups({
         )}
       </PermissionGate>
 
-      {/* Excel */}
+      {/* 4. Excel */}
       <PermissionGate permission={WORKSPACE_PERMISSIONS.VIEW_EXCEL}>
         <button
-          className={topNavBtnClass(screen === "excel")}
-          onClick={() => setScreen("excel")}
+          className={topNavBtnClass(isExcel)}
+          onClick={() => navigate("/excel")}
         >
           <FileSpreadsheet size={19} strokeWidth={1.8} className="shrink-0 text-inherit" />
           {!sidebarCollapsed && <span>Excel</span>}

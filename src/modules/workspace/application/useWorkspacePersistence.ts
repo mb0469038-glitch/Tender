@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
+import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState } from "react";
 import type {
   Assembly,
   CanvasItem,
@@ -38,7 +38,6 @@ import {
   flyScreenAssembly,
   fynTransomMaterial,
   fynTransomPhoto,
-  technalAssembly,
   technalMaterials,
   withTechnalSeed,
 } from "../../catalog/domain/technalSeed";
@@ -124,13 +123,19 @@ export function useWorkspacePersistence({
   synchronizeCombinationDetails,
 }: UseWorkspacePersistenceParams) {
   const [hydrated, setHydrated] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [workspaceSaveStatus, setWorkspaceSaveStatus] = useState<"saving" | "saved" | "error">("saved");
   const [recentWorkspaceSaves, setRecentWorkspaceSaves] = useState<string[]>([]);
   const workspaceSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
   const workspaceSaveVersion = useRef(0);
+  const loadStartedRef = useRef(false);
 
-  // Initial load effect
-  useEffect(() => {
+  // On-demand lazy load workspace data
+  const loadWorkspaceData = useCallback(() => {
+    if (hydrated || loadStartedRef.current) return;
+    loadStartedRef.current = true;
+    setIsLoading(true);
+
     workspaceGateway
       .loadSnapshot()
       .then((snapshot) => {
@@ -228,12 +233,7 @@ export function useWorkspacePersistence({
                 ? TECHNAL_GYN_DATABASE
                 : assembly.databaseId === TECHNAL_FY_DATABASE
                   ? TECHNAL_FYN_DATABASE
-                  : assembly.databaseId ?? (assembly.code === technalAssembly.code ? TECHNAL_GYN_DATABASE : undefined),
-            joinModifications: usesDirectJoinValues(assembly)
-              ? []
-              : assembly.databaseId === TECHNAL_FYN_DATABASE || assembly.databaseId === TECHNAL_FY_DATABASE
-                ? completeFynJoinModifications(assembly.joinModifications)
-                : assembly.joinModifications ?? [],
+                  : assembly.databaseId ?? (assembly.id === "fly-screen-2rail" || assembly.name.toLowerCase().includes("soleal") ? TECHNAL_GYN_DATABASE : undefined),
           }));
           const hingedFynFrameTypes = normalizedAssemblies.find((assembly) => assembly.id === "hinged-window-soleal-fyn")?.frameTypes ?? [];
           setAssemblies(
@@ -340,16 +340,34 @@ export function useWorkspacePersistence({
         }
       })
       .catch(console.error)
-      .finally(() => setHydrated(true));
-  }, []);
+      .finally(() => {
+        setHydrated(true);
+        setIsLoading(false);
+      });
 
-  // Fetch recent saves on startup
-  useEffect(() => {
     workspaceGateway
       .fetchRecentSaves()
       .then(setRecentWorkspaceSaves)
       .catch((error) => console.error("Could not load recent workspace saves.", error));
-  }, []);
+  }, [
+    hydrated,
+    setMaterials,
+    setAssemblies,
+    setProjects,
+    setExecutionProjects,
+    setComponentDatabases,
+    setWeightRates,
+    setMarkupRates,
+    setManpowerCurrency,
+    setManpowerCosts,
+    setShippingTypes,
+    setShippingCosts,
+    setFynAssemblyMaterialTemplateVersion,
+    setCompanyDatabases,
+    setCompanyPriceTables,
+    setMovedOriginalPriceTableIds,
+    setSelectedProjectId,
+  ]);
 
   // FYN join modifications migration
   useEffect(() => {
@@ -608,6 +626,8 @@ export function useWorkspacePersistence({
 
   return {
     hydrated,
+    isLoading,
+    loadWorkspaceData,
     workspaceSaveStatus,
     recentWorkspaceSaves,
     fynAssemblyMaterialTemplateVersion,
