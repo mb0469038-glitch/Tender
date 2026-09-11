@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
+import { useLocation, Navigate } from "react-router-dom";
 import { useSession } from "./SessionContext";
 import { LoginScreen } from "./LoginScreen";
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const { isLoading, user } = useSession();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -13,6 +15,19 @@ export function AuthGate({ children }: { children: ReactNode }) {
       </div>
     );
   }
-  if (!user) return <LoginScreen />;
+
+  const isLoginPage = location.pathname === "/login";
+
+  if (!user) {
+    if (!isLoginPage) {
+      return <Navigate to="/login" replace />;
+    }
+    return <LoginScreen />;
+  }
+
+  if (isLoginPage) {
+    return <Navigate to="/home" replace />;
+  }
+
   return <>{children}</>;
 }

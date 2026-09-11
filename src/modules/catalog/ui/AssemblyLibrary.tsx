@@ -21,6 +21,7 @@ export type AssemblyLibraryProps = {
   assemblies: Assembly[];
   openModal: (type: "assembly", id?: string) => void;
   remove: (type: "assembly", id: string) => void;
+  onOpenAssembly?: (id: string) => void;
 };
 
 export function AssemblyLibrary({
@@ -32,6 +33,7 @@ export function AssemblyLibrary({
   assemblies,
   openModal,
   remove,
+  onOpenAssembly,
 }: AssemblyLibraryProps) {
   const systemName = activeAssemblySystem === "technal" ? "Technal" : "Sidem";
   const isTwoRailWindowPage = activeDatabaseId === TWO_RAIL_WINDOW_PAGE;
@@ -59,19 +61,21 @@ export function AssemblyLibrary({
   const systemAssemblies = assemblies.filter(
     (assembly) =>
       (isTwoRailWindowPage
-        ? assembly.assemblyPage === TWO_RAIL_WINDOW_PAGE
+        ? (assembly.assemblyPage === TWO_RAIL_WINDOW_PAGE || assembly.id === "soleal-gyn-2rail")
         : isFlyScreenPage
-          ? assembly.assemblyPage === FLY_SCREEN_PAGE
+          ? (assembly.assemblyPage === FLY_SCREEN_PAGE || assembly.id === "fly-screen-2rail")
           : isHingeWindowPage
-            ? assembly.assemblyPage === HINGE_WINDOW_PAGE
+            ? (assembly.assemblyPage === HINGE_WINDOW_PAGE || assembly.id === "hinged-window-soleal-fyn" || assembly.id === "hinge-window")
             : isFixedWindowPage
-              ? assembly.assemblyPage === FIXED_WINDOW_PAGE
+              ? (assembly.assemblyPage === FIXED_WINDOW_PAGE || assembly.id === "fixed-window")
               : isTiltAndTurnPage
-                ? assembly.assemblyPage === TILT_AND_TURN_PAGE
+                ? (assembly.assemblyPage === TILT_AND_TURN_PAGE || assembly.id === "tilt-and-turn-soleal-fyn")
                 : activeSubcategory
                   ? assembly.databaseId === activeDatabaseId
-                  : assembly.manufacturer?.toLowerCase() === systemName.toLowerCase()) &&
-      `${assembly.name} ${assembly.code}`.toLowerCase().includes(assemblyQuery)
+                  : (activeAssemblySystem === "technal"
+                      ? (assembly.manufacturer?.toLowerCase() === "technal" || assembly.manufacturer?.toLowerCase() === "soleal")
+                      : assembly.manufacturer?.toLowerCase() === "sidem")) &&
+      `${assembly.name || ""} ${assembly.code || ""}`.toLowerCase().includes(assemblyQuery)
   );
 
   return (
@@ -123,25 +127,42 @@ export function AssemblyLibrary({
         >
           {systemAssemblies.map((assembly) => (
             <article
-              className="min-h-[270px] overflow-hidden border border-[#dfe7e8] rounded-[10px] bg-white text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-[#8dbdb8] hover:shadow-[0_9px_20px_#17424419] flex flex-col"
+              className="min-h-[270px] overflow-hidden border border-[#dfe7e8] rounded-[10px] bg-white text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-[#8dbdb8] hover:shadow-[0_9px_20px_#17424419] flex flex-col cursor-pointer group"
               key={assembly.id}
+              onClick={() => {
+                if (onOpenAssembly) {
+                  onOpenAssembly(assembly.id);
+                } else {
+                  openModal("assembly", assembly.id);
+                }
+              }}
             >
               <div className="h-[125px] w-full bg-[#f7fbfa] flex items-center justify-center overflow-hidden border-b border-[#edf3f3]">
                 <Sketch path={assembly.sketch} label={assembly.name} />
               </div>
               <div className="p-[15px] flex-1 flex flex-col justify-between">
-                <h2 className="m-0 text-[#173a3f] text-[16px] font-bold">{assembly.name}</h2>
+                <h2 className="m-0 text-[#173a3f] text-[16px] font-bold group-hover:text-[#176f6b] transition-colors">{assembly.name}</h2>
                 <div className="flex gap-1.5 mt-3">
                   <button
                     className="flex items-center gap-1.5 px-2.5 py-1.5 border border-[#d2dfdf] rounded-md bg-[#f4f8f8] text-[#285d61] text-xs font-bold hover:bg-[#e6f1f1] cursor-pointer transition-colors"
-                    onClick={() => openModal("assembly", assembly.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onOpenAssembly) {
+                        onOpenAssembly(assembly.id);
+                      } else {
+                        openModal("assembly", assembly.id);
+                      }
+                    }}
                   >
                     <Icon name="edit" size={15} /> Edit
                   </button>
                   <PermissionGate permission={WORKSPACE_PERMISSIONS.DELETE_ASSEMBLY}>
                     <button
                       className="flex items-center gap-1.5 px-2.5 py-1.5 border border-[#f2d0d0] rounded-md bg-[#fdf2f2] text-[#a83737] text-xs font-bold hover:bg-[#fae4e4] cursor-pointer transition-colors"
-                      onClick={() => remove("assembly", assembly.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        remove("assembly", assembly.id);
+                      }}
                     >
                       <Icon name="trash" size={15} /> Delete
                     </button>

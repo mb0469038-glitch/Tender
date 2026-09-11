@@ -45,7 +45,7 @@ export function FacadeProjectsTable({ projects, openings }: FacadeProjectsTableP
 
         <button
           type="button"
-          onClick={() => navigate("/home")}
+          onClick={() => navigate("/estimation")}
           className="text-xs font-bold text-[#165BAA] hover:underline flex items-center gap-1 border-0 bg-transparent cursor-pointer"
         >
           <span>Open Estimation System</span>
@@ -111,7 +111,7 @@ export function FacadeProjectsTable({ projects, openings }: FacadeProjectsTableP
                   <td className="py-3.5 px-4 text-right">
                     <button
                       type="button"
-                      onClick={() => navigate("/home")}
+                      onClick={() => navigate(`/estimation/projects/${proj.id}`)}
                       className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-[#165BAA] hover:text-[#0B1F4D] bg-[#EFF6FF] hover:bg-[#DBEAFE] rounded-md transition-colors border border-[#BFDBFE] cursor-pointer"
                     >
                       <span>Open Canvas</span>

@@ -1,16 +1,19 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import type { useAppState } from "../application/useAppState";
 import { DashboardScreen } from "../modules/dashboard/ui/DashboardScreen";
-import { ProjectsScreen } from "../modules/projects/ui/ProjectsScreen";
+import { HomeScreen } from "../modules/home/ui/HomeScreen";
 import { PriceBook } from "../modules/catalog/ui/PriceBook/PriceBook";
 import { CostingFinancials } from "../modules/costing/ui/CostingFinancials";
 import { Library } from "../modules/catalog/ui/Library";
-import { AssemblyLibrary } from "../modules/catalog/ui/AssemblyLibrary";
+import { AssemblyRouteWrapper } from "./wrappers/AssemblyRouteWrapper";
 import { ExcelWorkspace } from "../modules/workspace/ui/ExcelWorkspace";
-import { ExecutionProjectsScreen } from "../modules/execution/ui/ExecutionProjectsScreen";
 import { WorkspaceDataLoader } from "./WorkspaceDataLoader";
 import { CanvasRouteWrapper } from "./wrappers/CanvasRouteWrapper";
+import { ProjectsOrCanvasDispatcher } from "./wrappers/ProjectsOrCanvasDispatcher";
+import { ExecutionRouteWrapper } from "./wrappers/ExecutionRouteWrapper";
 import { ExecutionWorkspaceRouteWrapper } from "./wrappers/ExecutionWorkspaceRouteWrapper";
+import { AdminBackofficeLayout } from "../modules/auth/ui/admin/AdminBackofficeLayout";
+import { AdminRouteGuard } from "../modules/auth/ui/AdminRouteGuard";
 import { getTableStyle } from "../modules/catalog/domain/tableStyles";
 import { Icon } from "../design-system/Icon";
 
@@ -25,6 +28,7 @@ export function AppRoutes({ state }: AppRoutesProps) {
     assemblies,
     projects,
     selectedProject,
+    selectedProjectId,
     setSelectedProjectId,
     selectedCanvasId,
     setSelectedCanvasId,
@@ -42,6 +46,7 @@ export function AppRoutes({ state }: AppRoutesProps) {
     priceBook,
     modals,
     activeProjectYear,
+    setActiveProjectYear,
     companyDatabases,
     companyPriceTables,
     movedOriginalPriceTableIds,
@@ -67,9 +72,6 @@ export function AppRoutes({ state }: AppRoutesProps) {
     materialView,
     setMaterialView,
     setMaterialDatabaseOverride,
-    activeAssemblySystem,
-    componentDatabases,
-    execution,
     persistence,
   } = state;
 
@@ -85,36 +87,125 @@ export function AppRoutes({ state }: AppRoutesProps) {
 
   return (
     <Routes>
-      {/* Root redirect to Dashboard */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      {/* 1. Root & Home Gateway Landing Page */}
+      <Route path="/" element={<Navigate to="/home" replace />} />
+      <Route path="/home" element={<HomeScreen />} />
+      <Route path="/login" element={<Navigate to="/home" replace />} />
 
-      {/* 1. Dashboard Landing Page (Instant load, zero initial workspace fetch) */}
+      {/* 2. Executive Dashboard (Instant load, zero initial workspace fetch) */}
       <Route path="/dashboard" element={<DashboardScreen />} />
 
-      {/* 2. Estimation Service (Home) */}
+      {/* 3. Estimation Service Routes */}
       <Route
-        path="/home"
+        path="/estimation"
+        element={<Navigate to={`/estimation/projects/${activeProjectYear || "2026"}`} replace />}
+      />
+      <Route
+        path="/estimation/projects"
+        element={<Navigate to={`/estimation/projects/${activeProjectYear || "2026"}`} replace />}
+      />
+
+      {/* Year-based projects list (/estimation/projects/2026) OR single-param project opens (/estimation/projects/:id) */}
+      <Route
+        path="/estimation/projects/:yearOrId"
         element={withLoader(
-          <ProjectsScreen
-            activeProjectYear={activeProjectYear}
+          <ProjectsOrCanvasDispatcher
             projects={projects}
+            activeProjectYear={activeProjectYear}
+            setActiveProjectYear={setActiveProjectYear}
+            setSelectedProjectId={setSelectedProjectId}
+            setSelectedCanvasId={setSelectedCanvasId}
+            selectedProject={selectedProject}
+            selectedProjectId={selectedProjectId}
+            selectedCanvasId={selectedCanvasId}
+            materials={materials}
+            assemblies={assemblies}
+            updateProject={updateProject}
+            undoCanvasChange={undoCanvasChange}
+            redoCanvasChange={redoCanvasChange}
+            undoProjectHistory={undoProjectHistory}
+            redoProjectHistory={redoProjectHistory}
+            shippingRateForMaterial={shippingRateForMaterial}
+            materialDatabaseReference={materialDatabaseReference}
+            selectedItemId={selectedItemId}
+            setSelectedItemId={setSelectedItemId}
+            interaction={canvasInteraction}
+            takeoff={takeoff}
             openModal={modals.openModal}
             remove={modals.remove}
-            onOpenProject={(projectId, canvasId) => {
-              setSelectedProjectId(projectId);
-              setSelectedCanvasId(canvasId);
-              state.setScreen("canvas");
-            }}
           />
         )}
       />
-      <Route path="/estimation" element={<Navigate to="/home" replace />} />
 
-      {/* 3. 2D Canvas Takeoff Screen */}
+      {/* Nested project opens: /estimation/projects/:year/:id */}
       <Route
-        path="/canvas"
+        path="/estimation/projects/:year/:id"
         element={withLoader(
           <CanvasRouteWrapper
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            setSelectedProjectId={setSelectedProjectId}
+            selectedProject={selectedProject}
+            materials={materials}
+            assemblies={assemblies}
+            updateProject={updateProject}
+            undoCanvasChange={undoCanvasChange}
+            redoCanvasChange={redoCanvasChange}
+            undoProjectHistory={undoProjectHistory}
+            redoProjectHistory={redoProjectHistory}
+            shippingRateForMaterial={shippingRateForMaterial}
+            materialDatabaseReference={materialDatabaseReference}
+            selectedItemId={selectedItemId}
+            setSelectedItemId={setSelectedItemId}
+            interaction={canvasInteraction}
+            takeoff={takeoff}
+            openModal={modals.openModal}
+          />
+        )}
+      />
+
+      {/* Backwards compatibility for old /home/projects URLs */}
+      <Route
+        path="/home/projects"
+        element={<Navigate to={`/estimation/projects/${activeProjectYear || "2026"}`} replace />}
+      />
+      <Route
+        path="/home/projects/:yearOrId"
+        element={withLoader(
+          <ProjectsOrCanvasDispatcher
+            projects={projects}
+            activeProjectYear={activeProjectYear}
+            setActiveProjectYear={setActiveProjectYear}
+            setSelectedProjectId={setSelectedProjectId}
+            setSelectedCanvasId={setSelectedCanvasId}
+            selectedProject={selectedProject}
+            selectedProjectId={selectedProjectId}
+            selectedCanvasId={selectedCanvasId}
+            materials={materials}
+            assemblies={assemblies}
+            updateProject={updateProject}
+            undoCanvasChange={undoCanvasChange}
+            redoCanvasChange={redoCanvasChange}
+            undoProjectHistory={undoProjectHistory}
+            redoProjectHistory={redoProjectHistory}
+            shippingRateForMaterial={shippingRateForMaterial}
+            materialDatabaseReference={materialDatabaseReference}
+            selectedItemId={selectedItemId}
+            setSelectedItemId={setSelectedItemId}
+            interaction={canvasInteraction}
+            takeoff={takeoff}
+            openModal={modals.openModal}
+            remove={modals.remove}
+          />
+        )}
+      />
+      <Route
+        path="/home/projects/:year/:id"
+        element={withLoader(
+          <CanvasRouteWrapper
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            setSelectedProjectId={setSelectedProjectId}
             selectedProject={selectedProject}
             materials={materials}
             assemblies={assemblies}
@@ -128,6 +219,65 @@ export function AppRoutes({ state }: AppRoutesProps) {
             selectedItemId={selectedItemId}
             setSelectedItemId={setSelectedItemId}
             selectedCanvasId={selectedCanvasId}
+            setSelectedCanvasId={setSelectedCanvasId}
+            interaction={canvasInteraction}
+            takeoff={takeoff}
+            openModal={modals.openModal}
+          />
+        )}
+      />
+
+      {/* Direct /projects/:id and /canvas/:id routes */}
+      <Route
+        path="/projects/:id"
+        element={withLoader(
+          <CanvasRouteWrapper
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            setSelectedProjectId={setSelectedProjectId}
+            selectedProject={selectedProject}
+            materials={materials}
+            assemblies={assemblies}
+            updateProject={updateProject}
+            undoCanvasChange={undoCanvasChange}
+            redoCanvasChange={redoCanvasChange}
+            undoProjectHistory={undoProjectHistory}
+            redoProjectHistory={redoProjectHistory}
+            shippingRateForMaterial={shippingRateForMaterial}
+            materialDatabaseReference={materialDatabaseReference}
+            selectedItemId={selectedItemId}
+            setSelectedItemId={setSelectedItemId}
+            selectedCanvasId={selectedCanvasId}
+            setSelectedCanvasId={setSelectedCanvasId}
+            interaction={canvasInteraction}
+            takeoff={takeoff}
+            openModal={modals.openModal}
+          />
+        )}
+      />
+
+      {/* 3. 2D Canvas Takeoff Screen */}
+      <Route
+        path="/canvas"
+        element={withLoader(
+          <CanvasRouteWrapper
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            setSelectedProjectId={setSelectedProjectId}
+            selectedProject={selectedProject}
+            materials={materials}
+            assemblies={assemblies}
+            updateProject={updateProject}
+            undoCanvasChange={undoCanvasChange}
+            redoCanvasChange={redoCanvasChange}
+            undoProjectHistory={undoProjectHistory}
+            redoProjectHistory={redoProjectHistory}
+            shippingRateForMaterial={shippingRateForMaterial}
+            materialDatabaseReference={materialDatabaseReference}
+            selectedItemId={selectedItemId}
+            setSelectedItemId={setSelectedItemId}
+            selectedCanvasId={selectedCanvasId}
+            setSelectedCanvasId={setSelectedCanvasId}
             interaction={canvasInteraction}
             takeoff={takeoff}
             openModal={modals.openModal}
@@ -323,50 +473,28 @@ export function AppRoutes({ state }: AppRoutesProps) {
         )}
       />
 
-      {/* 8. Assemblies Route */}
+      {/* 8. Assemblies Routes */}
       <Route
         path="/assemblies"
-        element={withLoader(
-          <AssemblyLibrary
-            activeAssemblySystem={activeAssemblySystem}
-            activeDatabaseId="prices"
-            componentDatabases={componentDatabases}
-            search={search}
-            setSearch={setSearch}
-            assemblies={assemblies}
-            openModal={modals.openModal}
-            remove={modals.remove}
-          />
-        )}
+        element={withLoader(<AssemblyRouteWrapper state={state} />)}
+      />
+      <Route
+        path="/assemblies/:systemOrId"
+        element={withLoader(<AssemblyRouteWrapper state={state} />)}
+      />
+      <Route
+        path="/assemblies/:systemOrId/:assemblyId"
+        element={withLoader(<AssemblyRouteWrapper state={state} />)}
       />
 
-      {/* 9. Projects Under Execution Route */}
+      {/* 9. Projects Under Execution Routes */}
       <Route
         path="/execution"
-        element={withLoader(
-          <ExecutionProjectsScreen
-            embedded
-            screen="execution-projects"
-            setScreen={state.setScreen}
-            executionProjects={execution.executionProjects}
-            selectedExecutionProjectId={execution.selectedExecutionProjectId}
-            executionFolderId={execution.executionFolderId}
-            setExecutionFolderId={execution.setExecutionFolderId}
-            executionNewMenuOpen={execution.executionNewMenuOpen}
-            setExecutionNewMenuOpen={execution.setExecutionNewMenuOpen}
-            newExecutionItemType={execution.newExecutionItemType}
-            setNewExecutionItemType={execution.setNewExecutionItemType}
-            newExecutionItemName={execution.newExecutionItemName}
-            setNewExecutionItemName={execution.setNewExecutionItemName}
-            openModal={modals.openModal}
-            openExecutionProject={execution.openExecutionProject}
-            copyExecutionProject={execution.copyExecutionProject}
-            removeExecutionProject={execution.removeExecutionProject}
-            openExecutionWorkspace={execution.openExecutionWorkspace}
-            createExecutionProjectItem={execution.createExecutionProjectItem}
-            removeExecutionProjectItem={execution.removeExecutionProjectItem}
-          />
-        )}
+        element={withLoader(<ExecutionRouteWrapper state={state} />)}
+      />
+      <Route
+        path="/execution/:projectId"
+        element={withLoader(<ExecutionRouteWrapper state={state} />)}
       />
 
       {/* 10. Execution Workspace Route */}
@@ -377,6 +505,24 @@ export function AppRoutes({ state }: AppRoutesProps) {
 
       {/* 11. Excel Spreadsheet Route */}
       <Route path="/excel" element={<ExcelWorkspace />} />
+
+      {/* 12. Admin & Access Control (Manage users & roles) */}
+      <Route
+        path="/admin"
+        element={
+          <AdminRouteGuard>
+            <AdminBackofficeLayout />
+          </AdminRouteGuard>
+        }
+      />
+      <Route
+        path="/admin/:tab"
+        element={
+          <AdminRouteGuard>
+            <AdminBackofficeLayout />
+          </AdminRouteGuard>
+        }
+      />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

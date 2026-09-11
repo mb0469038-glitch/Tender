@@ -13,7 +13,9 @@ export function App() {
 
   const isExecutionWorkspace =
     location.pathname === "/execution/workspace" || state.screen === "execution-workspace";
-  const isDashboard = location.pathname === "/dashboard" || location.pathname === "/";
+  const isDashboard = location.pathname === "/dashboard";
+  const isHome = location.pathname === "/home" || location.pathname === "/";
+  const isAdmin = location.pathname.startsWith("/admin");
 
   // If in dedicated full-screen execution workspace (without shell topbar/sidebar)
   if (isExecutionWorkspace) {
@@ -32,7 +34,7 @@ export function App() {
       />
 
       <div className="flex-1 flex min-h-0">
-        {!isDashboard && (
+        {!isDashboard && !isHome && !isAdmin && (
           <AppSidebar
             sidebarCollapsed={state.sidebarCollapsed}
             setSidebarCollapsed={state.setSidebarCollapsed}

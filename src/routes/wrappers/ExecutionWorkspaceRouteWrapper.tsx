@@ -46,8 +46,11 @@ export function ExecutionWorkspaceRouteWrapper({
       workspaceOptimizationError={state.execution.workspaceOptimizationError}
       setWorkspaceOptimizationError={state.execution.setWorkspaceOptimizationError}
       setScreen={(screen) => {
-        if (screen === "execution-projects") navigate("/execution");
-        else state.setScreen(screen);
+        if (screen === "execution-projects") {
+          navigate(project ? `/execution/${project.id}` : "/execution");
+        } else {
+          state.setScreen(screen);
+        }
       }}
       materials={state.materials}
       assemblies={state.assemblies}

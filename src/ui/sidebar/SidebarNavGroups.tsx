@@ -87,7 +87,10 @@ export function SidebarNavGroups({
 
   const isStock = location.pathname.startsWith("/stock");
   const isExecution = location.pathname.startsWith("/execution");
-  const isProjects = location.pathname === "/home" || location.pathname.startsWith("/canvas");
+  const isProjects =
+    location.pathname.startsWith("/estimation") ||
+    location.pathname.startsWith("/projects") ||
+    location.pathname.startsWith("/canvas");
   const isDatabase = location.pathname.startsWith("/database");
   const isAssemblies = location.pathname.startsWith("/assemblies");
   const isExcel = location.pathname.startsWith("/excel");
@@ -135,7 +138,7 @@ export function SidebarNavGroups({
         <button
           className={topNavBtnClass(isProjects)}
           onClick={() => {
-            navigate("/home");
+            navigate(`/estimation/projects/${activeProjectYear || "2026"}`);
             setProjectsOpen((open) => !open);
           }}
           aria-expanded={projectsOpen}
@@ -157,10 +160,15 @@ export function SidebarNavGroups({
             {projectYears.map((year) => (
               <button
                 key={year}
-                className={subNavBtnClass(isProjects && activeProjectYear === year)}
+                className={subNavBtnClass(
+                  isProjects &&
+                    (location.pathname === `/estimation/projects/${year}` ||
+                      location.pathname.startsWith(`/estimation/projects/${year}/`) ||
+                      (!location.pathname.includes("/estimation/projects/") && activeProjectYear === year))
+                )}
                 onClick={() => {
                   setActiveProjectYear(year);
-                  navigate("/home");
+                  navigate(`/estimation/projects/${year}`);
                 }}
               >
                 <span>{year}</span>
@@ -215,7 +223,9 @@ export function SidebarNavGroups({
         <button
           className={topNavBtnClass(isAssemblies)}
           onClick={() => {
-            navigate("/assemblies");
+            const defaultPage =
+              activeDatabaseId && activeDatabaseId !== "prices" ? activeDatabaseId : "two-rail-window";
+            navigate(`/assemblies/${defaultPage}`);
             setAssembliesOpen((open) => !open);
           }}
           aria-expanded={assembliesOpen}
@@ -234,31 +244,39 @@ export function SidebarNavGroups({
         </button>
         {assembliesOpen && !sidebarCollapsed && (
           <div className="grid gap-1 my-1 ml-4 pl-3 border-l-2 border-[#E3E8EF]">
-            {TECHNAL_NAV_ITEMS.map((item) => (
-              <button
-                key={item.id}
-                className={subNavBtnClass(
-                  isAssemblies && activeDatabaseId === item.id
-                )}
-                onClick={() => {
-                  setActiveAssemblySystem("technal");
-                  setActiveDatabaseId(item.id);
-                  navigate("/assemblies");
-                }}
-              >
-                <span className="truncate">{item.label}</span>
-              </button>
-            ))}
+            {TECHNAL_NAV_ITEMS.map((item) => {
+              const isItemActive =
+                isAssemblies &&
+                (activeDatabaseId === item.id ||
+                  location.pathname === `/assemblies/${item.id}` ||
+                  location.pathname.startsWith(`/assemblies/${item.id}/`));
+              return (
+                <button
+                  key={item.id}
+                  className={subNavBtnClass(isItemActive)}
+                  onClick={() => {
+                    setActiveAssemblySystem("technal");
+                    setActiveDatabaseId(item.id);
+                    navigate(`/assemblies/${item.id}`);
+                  }}
+                >
+                  <span className="truncate">{item.label}</span>
+                </button>
+              );
+            })}
 
             <div className="flex items-center gap-1 mt-1">
               <button
                 className={`${subNavBtnClass(
-                  isAssemblies && activeAssemblySystem === "sidem"
+                  isAssemblies &&
+                    (activeAssemblySystem === "sidem" ||
+                      location.pathname === "/assemblies/sidem" ||
+                      location.pathname.startsWith("/assemblies/sidem/"))
                 )} flex-1`}
                 onClick={() => {
                   setActiveAssemblySystem("sidem");
                   setActiveDatabaseId("sidem");
-                  navigate("/assemblies");
+                  navigate("/assemblies/sidem");
                 }}
               >
                 <span>Sidem</span>
@@ -277,23 +295,26 @@ export function SidebarNavGroups({
               <div className="grid gap-1 my-1 ml-3 pl-2.5 border-l border-[#E3E8EF]">
                 {componentDatabases
                   .filter((item) => item.parent === "sidem")
-                  .map((database) => (
-                    <button
-                      key={database.id}
-                      className={subNavBtnClass(
-                        isAssemblies &&
-                          activeAssemblySystem === "sidem" &&
-                          activeDatabaseId === database.id
-                      )}
-                      onClick={() => {
-                        setActiveAssemblySystem("sidem");
-                        setActiveDatabaseId(database.id);
-                        navigate("/assemblies");
-                      }}
-                    >
-                      <span className="truncate">{database.name}</span>
-                    </button>
-                  ))}
+                  .map((database) => {
+                    const isDbActive =
+                      isAssemblies &&
+                      (activeDatabaseId === database.id ||
+                        location.pathname === `/assemblies/${database.id}` ||
+                        location.pathname.startsWith(`/assemblies/${database.id}/`));
+                    return (
+                      <button
+                        key={database.id}
+                        className={subNavBtnClass(isDbActive)}
+                        onClick={() => {
+                          setActiveAssemblySystem("sidem");
+                          setActiveDatabaseId(database.id);
+                          navigate(`/assemblies/${database.id}`);
+                        }}
+                      >
+                        <span className="truncate">{database.name}</span>
+                      </button>
+                    );
+                  })}
               </div>
             )}
           </div>

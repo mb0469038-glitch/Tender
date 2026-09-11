@@ -22,15 +22,22 @@ export function LoginScreen() {
     if (!result.ok) {
       setError(result.error);
     } else {
-      navigate("/dashboard", { replace: true });
+      navigate("/home", { replace: true });
     }
   };
 
   return (
     <div className="auth-login-screen">
       <form className="auth-login-card" onSubmit={submit}>
-        <h1 className="auth-login-title">Tender Helping System</h1>
-        <p className="auth-login-subtitle">Sign in to continue.</p>
+        <div className="flex justify-center mb-4">
+          <img
+            src="/brand/atelier-moderne-logo.png"
+            alt="L’Atelier Moderne de l’Aluminium"
+            className="h-12 w-auto object-contain"
+          />
+        </div>
+        <h1 className="auth-login-title text-center">AMA Workspace</h1>
+        <p className="auth-login-subtitle text-center">Sign in to access architectural systems.</p>
         {error && <div className="auth-error">{error}</div>}
         <div className="auth-field">
           <label htmlFor="auth-username">Username</label>

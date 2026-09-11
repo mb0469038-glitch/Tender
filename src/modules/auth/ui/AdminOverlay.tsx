@@ -1,23 +1,15 @@
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useMemo } from "react";
 import type { ReactNode } from "react";
-import { AdminBackofficeLayout } from "./admin";
+import { useNavigate } from "react-router-dom";
 
 type AdminOverlayContextValue = { openAdmin: () => void };
 
 const AdminOverlayContext = createContext<AdminOverlayContextValue | null>(null);
 
-/**
- * Wraps the existing <App/> and swaps it for the admin backoffice full-screen
- * when opened, so App.tsx only needs a single `onOpenAdmin` call site (in the
- * profile menu) rather than owning any admin routing itself.
- */
 export function AdminOverlayProvider({ children }: { children: ReactNode }) {
-  const [isAdminOpen, setIsAdminOpen] = useState(false);
-  const value = useMemo(() => ({ openAdmin: () => setIsAdminOpen(true) }), []);
+  const navigate = useNavigate();
+  const value = useMemo(() => ({ openAdmin: () => navigate("/admin/users") }), [navigate]);
 
-  if (isAdminOpen) {
-    return <AdminBackofficeLayout onClose={() => setIsAdminOpen(false)} />;
-  }
   return <AdminOverlayContext.Provider value={value}>{children}</AdminOverlayContext.Provider>;
 }
 

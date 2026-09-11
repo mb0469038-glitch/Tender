@@ -1,6 +1,6 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useSession } from "./SessionContext";
-import { useAdminOverlay } from "./AdminOverlay";
 import { PermissionGate } from "./PermissionGate";
 import { AUTH_PERMISSIONS } from "../domain/permissions";
 import "./auth.css";
@@ -15,7 +15,7 @@ const initialsFor = (name: string) =>
 
 export function ProfileMenu() {
   const { user, logout } = useSession();
-  const { openAdmin } = useAdminOverlay();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   if (!user) return null;
 
@@ -39,13 +39,20 @@ export function ProfileMenu() {
               type="button"
               onClick={() => {
                 setOpen(false);
-                openAdmin();
+                navigate("/admin/users");
               }}
             >
               Manage users &amp; roles
             </button>
           </PermissionGate>
-          <button type="button" onClick={() => logout()}>
+          <button
+            type="button"
+            onClick={async () => {
+              setOpen(false);
+              await logout();
+              navigate("/login");
+            }}
+          >
             Log out
           </button>
         </div>
